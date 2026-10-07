@@ -1,11 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { TREATMENTS, BOOKINGS, HISTORY, SLOTS, SALON, USER, CATEGORIES, fmt } from '../lib/mock';
-import { Logo, Btn, Ghost, Field, Badge, Thumb, Calendar, lab, iso } from './ui';
+import { Logo, Btn, Ghost, Field, Badge, Thumb, Calendar, lab, iso, LineIcon } from './ui';
 import { api, hasApi } from '../lib/api';
 
-const NAV = [['home', 'Početna', '🏠'], ['treatments', 'Tretmani', '🪷'], ['b1', 'Zakazivanje', '📅'], ['profile', 'Profil', '👤']];
+const NAV = [['home', 'Početna', 'home'], ['treatments', 'Tretmani', 'spa'], ['b1', 'Zakazivanje', 'calendar'], ['profile', 'Profil', 'user']];
 const STEPS = ['Tretman', 'Datum', 'Vreme', 'Potvrda'];
+const toneOf = name => ({ Lice: 'lice', Telo: 'telo', 'Masaže': 'masaze', Depilacija: 'depilacija', Wellness: 'wellness' }[name] || 'lice');
 
 export default function Mobile() {
   const [s, setS] = useState('splash');
@@ -14,38 +15,54 @@ export default function Mobile() {
   const [list, setList] = useState(BOOKINGS), [hist, setHist] = useState(HISTORY);
   const [TR, setTR] = useState(TREATMENTS), [tok, setTok] = useState(null), [user, setUser] = useState(USER), [err, setErr] = useState('');
   const [f, setF] = useState({ name: '', email: '', password: '', confirm: '', remember: false });
+  const [admin, setAdmin] = useState(null);
   const set = k => e => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
-  const EMO = { Lice: '✨', Telo: '🌿', 'Masaže': '💆‍♀️', Depilacija: '🪷', Wellness: '🕯️' };
   const STAT = { PENDING: 'Na čekanju', CONFIRMED: 'Potvrđeno', COMPLETED: 'Završeno', CANCELLED: 'Otkazano' };
-  const fmtB = b => { const d = new Date(b.startsAt); return { id: b.id, treatment: b.treatment.name, priceRsd: b.treatment.priceRsd, when: `${d.toLocaleDateString('sr-Latn')} • ${d.toTimeString().slice(0, 5)}`, status: STAT[b.status], emoji: '✨' }; };
+  const fmtB = b => { const d = new Date(b.startsAt); return { id: b.id, treatment: b.treatment.name, priceRsd: b.treatment.priceRsd, when: `${d.toLocaleDateString('sr-Latn')} • ${d.toTimeString().slice(0, 5)}`, status: STAT[b.status], tone: toneOf(b.treatment.category?.name) }; };
   const reload = async t => { const r = await api('/api/bookings/my', { token: t }); setList(r.active.map(fmtB)); setHist(r.history.map(fmtB)); };
-  useEffect(() => { if (!hasApi) return; api('/api/treatments').then(r => { const x = r.map(t => ({ id: t.id, name: t.name, priceRsd: t.priceRsd, durationMin: t.durationMin, category: t.category.name, emoji: EMO[t.category.name] || '✨', popular: t.popular })); setTR(x); setBk(b => ({ ...b, t: x[1] || x[0] })); }).catch(() => {}); }, []);
+  const reloadAdmin = async t => { if (!hasApi) return; setAdmin(await api('/api/admin/overview', { token: t })); };
+  useEffect(() => { if (!hasApi) return; api('/api/treatments').then(r => { const x = r.map(t => ({ id: t.id, name: t.name, priceRsd: t.priceRsd, durationMin: t.durationMin, category: t.category.name, tone: toneOf(t.category.name), popular: t.popular })); setTR(x); setBk(b => ({ ...b, t: x[1] || x[0] })); }).catch(() => {}); }, []);
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' && localStorage.getItem('minaSession');
+    if (!saved || !hasApi) return;
+    try {
+      const data = JSON.parse(saved);
+      setTok(data.token); setUser(data.user); reload(data.token).catch(() => localStorage.removeItem('minaSession')); setS('home');
+      if (data.user.role === 'ADMIN') reloadAdmin(data.token).catch(() => {});
+    } catch {
+      localStorage.removeItem('minaSession');
+    }
+  }, []);
   const auth = async mode => {
     setErr(''); if (!hasApi) return setS('home');
     try {
       if (mode === 'register' && f.password !== f.confirm) throw new Error('Lozinke se ne poklapaju');
       const r = await api('/api/auth/' + mode, { method: 'POST', body: mode === 'login' ? { email: f.email, password: f.password, remember: f.remember } : { fullName: f.name, email: f.email, password: f.password } });
       setTok(r.token); setUser(r.user); await reload(r.token); setS('home');
+      if (f.remember) localStorage.setItem('minaSession', JSON.stringify({ token: r.token, user: r.user }));
+      else localStorage.removeItem('minaSession');
+      if (r.user.role === 'ADMIN') await reloadAdmin(r.token);
     } catch (e) { setErr(e.message); }
   };
+  const setStatus = async (id, status) => { await api('/api/admin/bookings/' + id, { method: 'PATCH', token: tok, body: { status } }); await reloadAdmin(tok); };
   const cancel = async id => { try { if (hasApi) await api('/api/bookings/' + id, { method: 'DELETE', token: tok }); setList(list.filter(x => x.id !== id)); } catch (e) { setErr(e.message); } };
   const Err = () => err ? <p role="alert" className="text-sm text-red-600">{err}</p> : null;
-  useEffect(() => { if (s === 'splash') { const t = setTimeout(() => setS('login'), 2200); return () => clearTimeout(t); } }, [s]);
+  useEffect(() => { if (s === 'splash') { const t = setTimeout(() => setS(current => current === 'splash' ? 'login' : current), 2200); return () => clearTimeout(t); } }, [s]);
 
   const shown = TR.filter(t => (cat === 'Svi' || t.category === cat) && t.name.toLowerCase().includes(q.toLowerCase()));
   const step = { b1: 0, b2: 1, b3: 3 }[s];
-  const withNav = ['home', 'treatments', 'b1', 'b2', 'b3', 'my', 'profile'].includes(s);
+  const withNav = ['home', 'treatments', 'b1', 'b2', 'b3', 'my', 'profile', 'admin'].includes(s);
   const confirm = async () => {
     setErr('');
     try {
       if (hasApi) { await api('/api/bookings', { method: 'POST', token: tok, body: { treatmentId: bk.t.id, date: iso(bk.day), time: bk.time, note: bk.note } }); await reload(tok); }
-      else setList([...list, { id: Date.now() + '', treatment: bk.t.name, priceRsd: bk.t.priceRsd, when: `${lab(bk.day)} • ${bk.time}`, status: 'Na čekanju', emoji: bk.t.emoji }]);
+      else setList([...list, { id: Date.now() + '', treatment: bk.t.name, priceRsd: bk.t.priceRsd, when: `${lab(bk.day)} • ${bk.time}`, status: 'Na čekanju', tone: bk.t.tone }]);
       setS('my');
     } catch (e) { setErr(e.message); }
   };
   const Row = ({ t, onClick, right }) => (
     <button onClick={onClick} className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-soft">
-      <Thumb e={t.emoji} /><div className="flex-1"><div className="font-semibold">{t.name}</div>
+      <Thumb tone={t.tone} /><div className="flex-1"><div className="font-semibold">{t.name}</div>
       <div className="text-xs text-mina/70">{fmt(t.priceRsd)}</div><div className="text-xs text-mina/50">{t.durationMin} min</div></div>{right ?? '›'}</button>);
   const Head = ({ title, back }) => (
     <div className="flex items-center gap-3 pb-4"><button aria-label="Nazad" onClick={() => setS(back)} className="text-xl text-mina">‹</button>
@@ -61,32 +78,33 @@ export default function Mobile() {
 
         {s === 'login' && <div className="space-y-4 pt-6"><Logo size="text-4xl" />
           <h1 className="font-serif text-3xl text-mina">Prijavite se</h1><p className="text-sm text-mina/70">Dobrodošli nazad! Uživajte u svojim omiljenim tretmanima.</p>
-          <Field icon="✉️" type="email" placeholder="Email adresa" value={f.email} onChange={set('email')} /><Field icon="🔒" type="password" placeholder="Lozinka" value={f.password} onChange={set('password')} />
+          <Field icon="mail" type="email" placeholder="Email adresa" value={f.email} onChange={set('email')} /><Field icon="lock" type="password" placeholder="Lozinka" value={f.password} onChange={set('password')} />
           <div className="flex justify-between text-sm"><label><input type="checkbox" checked={f.remember} onChange={set('remember')} className="mr-2 accent-mina" />Zapamti me</label><a className="text-mina">Zaboravili ste lozinku?</a></div>
           <Err /><Btn className="w-full" onClick={() => auth('login')}>Prijavite se</Btn>
           <p className="text-center text-xs text-mina/60">ili se prijavite preko</p>
-          <div className="flex justify-center gap-4">{['G', '', 'f'].map((x, i) => <button key={i} aria-label={['Google', 'Apple', 'Facebook'][i]} className="h-12 w-12 rounded-full bg-white font-bold text-mina shadow-soft">{x || ''}</button>)}</div>
+          <div className="flex justify-center gap-4">{['G', 'A', 'f'].map((x, i) => <button key={i} aria-label={['Google', 'Apple', 'Facebook'][i]} className="h-12 w-12 rounded-full bg-white font-bold text-mina shadow-soft">{x}</button>)}</div>
           <p className="text-center text-sm">Nemate nalog? <button className="font-semibold text-mina" onClick={() => setS('register')}>Napravite nalog</button></p></div>}
 
         {s === 'register' && <div className="space-y-4 pt-6"><Logo size="text-4xl" />
           <h1 className="font-serif text-3xl text-mina">Napravi nalog</h1><p className="text-sm text-mina/70">Postanite deo naše zajednice i otkrijte sve pogodnosti.</p>
-          <Field icon="👤" placeholder="Ime i prezime" value={f.name} onChange={set('name')} /><Field icon="✉️" type="email" placeholder="Email adresa" value={f.email} onChange={set('email')} />
-          <Field icon="🔒" type="password" placeholder="Lozinka (min. 8 znakova)" value={f.password} onChange={set('password')} /><Field icon="🔒" type="password" placeholder="Potvrdite lozinku" value={f.confirm} onChange={set('confirm')} />
+          <Field icon="user" placeholder="Ime i prezime" value={f.name} onChange={set('name')} /><Field icon="mail" type="email" placeholder="Email adresa" value={f.email} onChange={set('email')} />
+          <Field icon="lock" type="password" placeholder="Lozinka (min. 8 znakova)" value={f.password} onChange={set('password')} /><Field icon="lock" type="password" placeholder="Potvrdite lozinku" value={f.confirm} onChange={set('confirm')} />
           <Err /><Btn className="w-full" onClick={() => auth('register')}>Napravi nalog</Btn>
           <p className="text-center text-sm">Već imate nalog? <button className="font-semibold text-mina" onClick={() => setS('login')}>Prijavite se</button></p></div>}
 
         {s === 'home' && <div className="space-y-5">
-          <div><h1 className="font-serif text-3xl text-mina">Zdravo, {user.fullName.split(' ')[0]}! ✨</h1><p className="text-sm text-mina/70">Brinemo o tvom zdravlju i lepoti.</p></div>
+          <div><h1 className="font-serif text-3xl text-mina">Zdravo, {user.fullName.split(' ')[0]}!</h1><p className="text-sm text-mina/70">Brinemo o tvom zdravlju i lepoti.</p></div>
           <div className="rounded-3xl bg-gradient-to-br from-mina to-mina-2 p-5 text-white shadow-soft"><h2 className="font-serif text-3xl leading-tight">Oseti razliku,<br />izaberi sebe.</h2>
             <button onClick={() => setS('b1')} className="mt-4 rounded-full bg-white px-4 py-2 text-sm font-semibold text-mina">Zakazivanje tretmana</button></div>
-          <div className="grid grid-cols-4 gap-2 text-center text-xs">{[['🪷', 'Tretmani', 'treatments'], ['🎁', 'Paketi'], ['🧴', 'Kozmetika'], ['🤍', 'Sa nama']].map(([e, l, to]) => (
-            <button key={l} onClick={() => to && setS(to)} className="rounded-2xl bg-white p-3 shadow-soft"><div className="text-xl">{e}</div>{l}</button>))}</div>
+          <div className="grid grid-cols-4 gap-2 text-center text-xs">{[['spa', 'Tretmani', 'treatments'], ['card', 'Paketi'], ['plus', 'Kozmetika'], ['phone', 'Sa nama']].map(([e, l, to]) => (
+            <button key={l} onClick={() => to && setS(to)} className="rounded-2xl bg-white p-3 shadow-soft"><LineIcon name={e} className="mx-auto mb-1 h-5 w-5 text-mina" />{l}</button>))}</div>
+          {user.role === 'ADMIN' && <Ghost className="w-full" onClick={() => { reloadAdmin(tok); setS('admin'); }}>Admin panel</Ghost>}
           <div className="flex justify-between"><h2 className="font-semibold">Popularni tretmani</h2><button className="text-xs text-mina" onClick={() => setS('treatments')}>Pogledaj sve →</button></div>
           <div className="flex gap-3 overflow-x-auto pb-2">{TR.filter(t => t.popular).map(t => (
-            <div key={t.id} className="w-32 shrink-0 rounded-2xl bg-white p-2 text-xs shadow-soft"><Thumb e={t.emoji} className="mb-2 h-20 w-full" /><b>{t.name}</b><div className="text-mina/60">{fmt(t.priceRsd)}</div></div>))}</div></div>}
+            <div key={t.id} className="w-32 shrink-0 rounded-2xl bg-white p-2 text-xs shadow-soft"><Thumb tone={t.tone} className="mb-2 h-20 w-full" /><b>{t.name}</b><div className="text-mina/60">{fmt(t.priceRsd)}</div></div>))}</div></div>}
 
         {s === 'treatments' && <div className="space-y-4"><h1 className="text-center font-semibold">Tretmani</h1>
-          <Field icon="🔍" placeholder="Pretraži tretmane..." value={q} onChange={e => setQ(e.target.value)} />
+          <Field icon="search" placeholder="Pretraži tretmane..." value={q} onChange={e => setQ(e.target.value)} />
           <div className="flex gap-2 overflow-x-auto">{CATEGORIES.map(c => <button key={c} onClick={() => setCat(c)} className={`rounded-full px-4 py-1.5 text-sm ${cat === c ? 'bg-mina text-white' : 'text-mina'}`}>{c}</button>)}</div>
           <div className="space-y-3">{shown.map(t => <Row key={t.id} t={t} onClick={() => { setBk({ ...bk, t }); setS('b2'); }} />)}
             {!shown.length && <p className="py-8 text-center text-mina/60">Nema rezultata. Probajte drugu kategoriju.</p>}</div></div>}
@@ -103,29 +121,47 @@ export default function Mobile() {
 
         {s === 'b3' && <><Head title="Zakazivanje tretmana" back="b2" /><Stepper /><h2 className="mb-3 font-semibold">Proveri podatke</h2>
           <div className="space-y-3 rounded-2xl bg-white p-4 text-sm shadow-soft">
-            <div className="flex gap-3"><Thumb e={bk.t.emoji} /><div><b>{bk.t.name}</b><div>{fmt(bk.t.priceRsd)}</div><div className="text-mina/60">{bk.t.durationMin} min</div></div></div>
-            <p>📅 {lab(bk.day)}</p><p>🕘 {bk.time}</p><p>📍 {SALON}</p></div>
+            <div className="flex gap-3"><Thumb tone={bk.t.tone} /><div><b>{bk.t.name}</b><div>{fmt(bk.t.priceRsd)}</div><div className="text-mina/60">{bk.t.durationMin} min</div></div></div>
+            <p>Datum: {lab(bk.day)}</p><p>Vreme: {bk.time}</p><p>Lokacija: {SALON}</p></div>
           <textarea value={bk.note} onChange={e => setBk({ ...bk, note: e.target.value })} placeholder="Dodaj napomenu (opciono)..." className="mt-3 h-24 w-full rounded-2xl border border-lav-2 p-3 outline-none" />
           <div className="mt-3"><Err /></div><Btn className="mt-3 w-full" onClick={confirm}>Potvrdi zakazivanje</Btn></>}
 
         {s === 'my' && <div className="space-y-4"><h1 className="font-semibold">Moja zakazivanja</h1>
           <div className="grid grid-cols-2 rounded-full bg-lav-2 p-1 text-sm">{['Aktivna', 'Istorija'].map(t => <button key={t} onClick={() => setTab(t)} className={`rounded-full py-2 font-semibold ${tab === t ? 'bg-mina text-white' : 'text-mina'}`}>{t}</button>)}</div>
           {(tab === 'Aktivna' ? list : hist).map(b => (
-            <div key={b.id} className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-soft"><Thumb e={b.emoji} />
+            <div key={b.id} className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-soft"><Thumb tone={b.tone} />
               <div className="flex-1 text-sm"><div className="flex justify-between"><b>{b.treatment}</b><Badge s={b.status} /></div><div className="text-mina/70">{fmt(b.priceRsd)}</div><div className="text-xs text-mina/50">{b.when}</div></div>
               {tab === 'Aktivna' && <button aria-label="Otkaži" className="text-xs text-red-600" onClick={() => cancel(b.id)}>Otkaži</button>}</div>))}
-          <Ghost className="w-full" onClick={() => setS('b1')}>+ Zakazivanje tretmana</Ghost></div>}
+          <Ghost className="w-full" onClick={() => setS('b1')}>Zakazivanje tretmana</Ghost></div>}
 
-        {s === 'profile' && <div className="space-y-4 text-center"><div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-lav-2 text-3xl">👩</div>
+        {s === 'profile' && <div className="space-y-4 text-center"><div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-lav-2 text-mina"><LineIcon name="user" className="h-8 w-8" /></div>
           <div><h1 className="text-xl font-semibold">{user.fullName}</h1><p className="text-sm text-mina/70">{user.email}</p></div>
           <div className="rounded-2xl bg-white text-left shadow-soft">{[['Moji podaci'], ['Moja zakazivanja', 'my'], ['Moj novčanik', null, '0 RSD'], ['Obaveštenja'], ['Postavke'], ['Pomoć']].map(([l, to, x]) => (
             <button key={l} onClick={() => to && setS(to)} className="flex w-full justify-between border-b border-lav px-4 py-3 last:border-0"><span>{l}</span><span className="text-mina/60">{x ?? '›'}</span></button>))}</div>
-          <Ghost className="w-full" onClick={() => { setTok(null); setUser(USER); setS('login'); }}>Odjavi se</Ghost></div>}
+          <Ghost className="w-full" onClick={() => { localStorage.removeItem('minaSession'); setTok(null); setUser(USER); setS('login'); }}>Odjavi se</Ghost></div>}
+
+        {s === 'admin' && <div className="space-y-4"><Head title="Admin panel" back="home" />
+          {!admin ? <p className="text-center text-mina/60">Učitavanje podataka...</p> : <>
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="rounded-2xl bg-white p-3 shadow-soft"><b className="block text-lg text-mina">{admin.counts.users}</b>Korisnici</div>
+              <div className="rounded-2xl bg-white p-3 shadow-soft"><b className="block text-lg text-mina">{admin.counts.bookings}</b>Termini</div>
+              <div className="rounded-2xl bg-white p-3 shadow-soft"><b className="block text-lg text-mina">{admin.counts.pending}</b>Na čekanju</div>
+            </div>
+            <h2 className="font-semibold">Najnovija zakazivanja</h2>
+            {admin.bookings.map(b => <div key={b.id} className="rounded-2xl bg-white p-3 text-sm shadow-soft">
+              <div className="flex gap-3"><Thumb tone={toneOf(b.treatment.category?.name)} /><div className="flex-1"><b>{b.treatment.name}</b><div className="text-mina/60">{b.user.fullName}</div><div className="text-xs text-mina/50">{new Date(b.startsAt).toLocaleString('sr-Latn')}</div></div><Badge s={STAT[b.status]} /></div>
+              <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                <button onClick={() => setStatus(b.id, 'CONFIRMED')} className="rounded-full bg-emerald-50 px-2 py-2 text-emerald-700">Potvrdi</button>
+                <button onClick={() => setStatus(b.id, 'COMPLETED')} className="rounded-full bg-lav px-2 py-2 text-mina">Završi</button>
+                <button onClick={() => setStatus(b.id, 'CANCELLED')} className="rounded-full bg-red-50 px-2 py-2 text-red-700">Otkaži</button>
+              </div>
+            </div>)}
+          </>}</div>}
       </main>
 
       {withNav && <nav className="fixed bottom-0 z-10 grid w-full max-w-md grid-cols-4 border-t border-lav-2 bg-white py-2 text-[11px]">
         {NAV.map(([k, l, e]) => { const on = k === s || (k === 'b1' && ['b2', 'b3', 'my'].includes(s));
-          return <button key={k} onClick={() => setS(k === 'b1' && s === 'my' ? 'my' : k)} className={`flex flex-col items-center gap-0.5 ${on ? 'font-bold text-mina' : 'text-mina/50'}`}><span className="text-lg">{e}</span>{l}</button>; })}
+          return <button key={k} onClick={() => setS(k === 'b1' && s === 'my' ? 'my' : k)} className={`flex flex-col items-center gap-0.5 ${on ? 'font-bold text-mina' : 'text-mina/50'}`}><LineIcon name={e} className="h-5 w-5" />{l}</button>; })}
       </nav>}
     </div>);
 }

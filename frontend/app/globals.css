@@ -2,3 +2,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Nunito+Sans:wght@400;600;700&display=swap');
 body { @apply bg-paper text-[#2d2236] font-sans; }
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #6B4E91; outline-offset: 2px; }
+.treatment-lice { background: linear-gradient(135deg, #f4d8d5 0%, #efe3f5 52%, #c7b1dc 100%); }
+.treatment-masaze { background: linear-gradient(135deg, #d8c0b4 0%, #f1dfd8 50%, #eadff3 100%); }
+.treatment-telo { background: linear-gradient(135deg, #e8d6c8 0%, #f5e9e0 48%, #d8cbea 100%); }
+.treatment-depilacija { background: linear-gradient(135deg, #f2cfbf 0%, #f7e5dc 48%, #d5c6e8 100%); }
+.treatment-wellness { background: linear-gradient(135deg, #d8c8b9 0%, #eee5d9 45%, #bba8d9 100%); }
+.soft-hero {
+  background:
+    radial-gradient(circle at 78% 38%, rgba(255,255,255,.62) 0 12%, transparent 13%),
+    linear-gradient(105deg, rgba(250,248,252,.95) 0 42%, rgba(231,219,241,.86) 42% 100%),
+    linear-gradient(135deg, #f3efff, #d8c8e8);
+}
