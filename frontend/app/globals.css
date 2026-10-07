@@ -14,6 +14,14 @@ button { transition-property: color, background-color, border-color, transform, 
     linear-gradient(105deg, rgba(250,248,252,.95) 0 42%, rgba(231,219,241,.86) 42% 100%),
     linear-gradient(135deg, #f3efff, #d8c8e8);
 }
+.hero-photo {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(250,248,252,.96) 0%, rgba(250,248,252,.9) 33%, rgba(250,248,252,.2) 62%),
+    url('/images/hero-wellness.png') center / cover no-repeat;
+}
+.hero-photo > * { position: relative; z-index: 1; }
 .auth-shell {
   background:
     linear-gradient(120deg, rgba(234,229,243,.92), rgba(250,248,252,.96)),

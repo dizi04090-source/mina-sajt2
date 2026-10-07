@@ -7,6 +7,13 @@ export const Logo = ({ size = 'text-5xl', sub = true }) => (
     {sub && <div className="text-[10px] tracking-[.35em]">WELLNESS SALON</div>}
   </div>);
 export const Mark = ({ className = 'h-8 w-8' }) => <img src="/mina-icon.png" alt="" className={`${className} object-contain`} />;
+const treatmentImages = {
+  lice: '/images/facial-treatment.png',
+  masaze: '/images/massage-treatment.png',
+  telo: '/images/body-treatment.png',
+  depilacija: '/images/depilation-treatment.png',
+  wellness: '/images/body-treatment.png',
+};
 export function LineIcon({ name = 'mina', className = 'h-5 w-5' }) {
   const common = { className, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true };
   const paths = {
@@ -39,8 +46,8 @@ export const Badge = ({ s }) => (
   <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${s === 'Na čekanju' ? 'bg-amber-100 text-amber-700' : s === 'Otkazano' ? 'bg-red-100 text-red-700' : s === 'Završeno' ? 'bg-lav-2 text-mina' : 'bg-emerald-100 text-emerald-700'}`}>{s}</span>);
 export const Thumb = ({ tone = 'lice', className = 'h-14 w-14' }) => (
   <div className={`${className} relative grid shrink-0 place-items-center overflow-hidden rounded-xl treatment-${tone}`}>
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,.8),transparent_34%),linear-gradient(135deg,rgba(94,59,118,.12),rgba(255,255,255,.18))]" />
-    <Mark className="relative h-8 w-8 opacity-90" />
+    <img src={treatmentImages[tone] || treatmentImages.lice} alt="" className="absolute inset-0 h-full w-full object-cover transition duration-300 hover:scale-105" />
+    <div className="absolute inset-0 bg-gradient-to-t from-mina/30 via-transparent to-white/10" />
   </div>);
 
 // Kalendar tekućeg meseca (prošli dani su onemogućeni)

@@ -161,7 +161,7 @@ export default function Desktop() {
     return (
       <div className="auth-shell min-h-screen bg-lav-2 p-6">
         <div className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-6xl grid-cols-[1fr_440px] overflow-hidden rounded-3xl bg-paper shadow-soft">
-          <section className="soft-hero relative flex flex-col justify-between p-12">
+          <section className="hero-photo relative flex flex-col justify-between p-12">
             <Logo size="text-6xl" />
             <div className="max-w-xl animate-rise">
               <p className="text-xs tracking-[.35em] text-mina">MINA WELLNESS SALON</p>
@@ -216,7 +216,7 @@ export default function Desktop() {
         {err && <p className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{err}</p>}
 
         {view === 'home' && <section className="space-y-6 animate-rise">
-          <div className="soft-hero rounded-3xl p-10">
+          <div className="hero-photo rounded-3xl p-10">
             <p className="text-xs tracking-[.3em] text-mina">MINA WELLNESS SALON</p>
             <h1 className="my-3 font-serif text-6xl leading-[1.05] text-mina">Tvoje zdravlje.<br />Tvoja lepota.</h1>
             <p className="mb-6 max-w-sm text-mina/80">Izaberi tretman, pošalji zahtev, a admin potvrđuje termin iz panela.</p>
