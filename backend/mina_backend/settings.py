@@ -74,7 +74,13 @@ cors_origin = os.getenv("CORS_ORIGIN") or os.getenv("CORS_ALLOWED_ORIGINS", "")
 CORS_ALLOWED_ORIGINS = [o.strip().rstrip("/") for o in cors_origin.split(",") if o.strip()]
 CORS_ALLOW_ALL_ORIGINS = DEBUG and not CORS_ALLOWED_ORIGINS
 CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = [o for o in CORS_ALLOWED_ORIGINS if o.startswith("https")]
+render_external_host = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+csrf_origin = os.getenv("CSRF_TRUSTED_ORIGINS", "")
+CSRF_TRUSTED_ORIGINS = [o.strip().rstrip("/") for o in csrf_origin.split(",") if o.strip()]
+CSRF_TRUSTED_ORIGINS += [o for o in CORS_ALLOWED_ORIGINS if o.startswith("https")]
+if render_external_host:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{render_external_host}")
+CSRF_TRUSTED_ORIGINS = sorted(set(CSRF_TRUSTED_ORIGINS))
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
