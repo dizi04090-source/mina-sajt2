@@ -1,0 +1,35 @@
+databases:
+  - name: mina-db
+    databaseName: mina
+    user: mina
+    plan: free
+
+services:
+  - type: web
+    name: mina-api
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: mina-db, property: connectionString }
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AUTO_SEED
+        value: "true"
+      - key: CORS_ORIGIN
+        sync: false
+
+  - type: web
+    name: mina-web
+    runtime: node
+    rootDir: frontend
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
