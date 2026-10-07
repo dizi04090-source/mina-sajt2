@@ -9,6 +9,7 @@ const STEPS = ['Tretman', 'Datum', 'Vreme', 'Potvrda'];
 const toneOf = name => ({ Lice: 'lice', Telo: 'telo', 'Masaže': 'masaze', Depilacija: 'depilacija', Wellness: 'wellness' }[name] || 'lice');
 const listOf = value => Array.isArray(value) ? value : [];
 const emptyAdmin = { counts: { users: 0, bookings: 0, pending: 0, treatments: 0 }, bookings: [] };
+const normalizeUser = user => user ? { role: 'USER', fullName: 'Korisnik', email: '', ...user } : null;
 
 export default function Mobile() {
   const [s, setS] = useState('register');
@@ -29,8 +30,10 @@ export default function Mobile() {
     if (!saved || !hasApi) return;
     try {
       const data = JSON.parse(saved);
-      setTok(data.token); setUser(data.user); reload(data.token).catch(() => localStorage.removeItem('minaSession')); setS('home');
-      if (data.user.role === 'ADMIN') reloadAdmin(data.token).catch(() => {});
+      const savedUser = normalizeUser(data.user);
+      if (!savedUser || !data.token) throw new Error('Neispravna sesija');
+      setTok(data.token); setUser(savedUser); reload(data.token).catch(() => localStorage.removeItem('minaSession')); setS('home');
+      if (savedUser.role === 'ADMIN') reloadAdmin(data.token).catch(() => {});
     } catch {
       localStorage.removeItem('minaSession');
     }
@@ -40,10 +43,12 @@ export default function Mobile() {
     try {
       if (mode === 'register' && f.password !== f.confirm) throw new Error('Lozinke se ne poklapaju');
       const r = await api('/api/auth/' + mode, { method: 'POST', body: mode === 'login' ? { email: f.email, password: f.password, remember: f.remember } : { fullName: f.name, email: f.email, password: f.password } });
-      setTok(r.token); setUser(r.user); await reload(r.token); setS('home');
-      if (f.remember) localStorage.setItem('minaSession', JSON.stringify({ token: r.token, user: r.user }));
+      const authUser = normalizeUser(r.user);
+      if (!r.token || !authUser) throw new Error('Backend nije vratio ispravan login odgovor. Proveri Render API podešavanja.');
+      setTok(r.token); setUser(authUser); await reload(r.token); setS('home');
+      if (f.remember) localStorage.setItem('minaSession', JSON.stringify({ token: r.token, user: authUser }));
       else localStorage.removeItem('minaSession');
-      if (r.user.role === 'ADMIN') await reloadAdmin(r.token);
+      if (authUser.role === 'ADMIN') await reloadAdmin(r.token);
     } catch (e) { setErr(e.message); }
   };
   const setStatus = async (id, status) => { await api('/api/admin/bookings/' + id, { method: 'PATCH', token: tok, body: { status } }); await reloadAdmin(tok); };

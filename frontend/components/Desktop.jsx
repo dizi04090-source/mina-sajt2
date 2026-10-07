@@ -18,6 +18,7 @@ const toneOf = name => ({ Lice: 'lice', Telo: 'telo', 'Masaže': 'masaze', Depil
 const listOf = value => Array.isArray(value) ? value : [];
 const todayIso = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 const emptyAdmin = { counts: { users: 0, bookings: 0, pending: 0, treatments: 0 }, bookings: [] };
+const normalizeUser = user => user ? { role: 'USER', fullName: 'Korisnik', email: '', ...user } : null;
 
 export default function Desktop() {
   const [view, setView] = useState('home');
@@ -85,11 +86,13 @@ export default function Desktop() {
     if (!saved || !hasApi) return;
     try {
       const data = JSON.parse(saved);
+      const savedUser = normalizeUser(data.user);
+      if (!savedUser || !data.token) throw new Error('Neispravna sesija');
       setToken(data.token);
-      setUser(data.user);
+      setUser(savedUser);
       setView('home');
       reloadBookings(data.token).catch(() => localStorage.removeItem('minaSession'));
-      if (data.user.role === 'ADMIN') reloadAdmin(data.token).catch(() => {});
+      if (savedUser.role === 'ADMIN') reloadAdmin(data.token).catch(() => {});
     } catch {
       localStorage.removeItem('minaSession');
     }
@@ -104,10 +107,12 @@ export default function Desktop() {
       : { email: form.email, password: form.password, remember: form.remember };
     try {
       const r = await api('/api/auth/' + mode, { method: 'POST', body });
-      setToken(r.token); setUser(r.user); setView('home');
-      if (form.remember) localStorage.setItem('minaSession', JSON.stringify({ token: r.token, user: r.user }));
+      const authUser = normalizeUser(r.user);
+      if (!r.token || !authUser) throw new Error('Backend nije vratio ispravan login odgovor. Proveri da mina-web koristi pravi NEXT_PUBLIC_API_URL i redeployuj mina-api.');
+      setToken(r.token); setUser(authUser); setView('home');
+      if (form.remember) localStorage.setItem('minaSession', JSON.stringify({ token: r.token, user: authUser }));
       await reloadBookings(r.token);
-      if (r.user.role === 'ADMIN') await reloadAdmin(r.token);
+      if (authUser.role === 'ADMIN') await reloadAdmin(r.token);
     } catch (e) {
       setErr(e.message);
     }
