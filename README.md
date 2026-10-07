@@ -1,11 +1,9 @@
 # MINA Wellness Salon
-Struktura: `backend/` (Express + Prisma), `frontend/` (Next.js + Tailwind), `render.yaml` (Render Blueprint).
+Struktura: `backend/` (Django + Django Admin + API), `frontend/` (Next.js + Tailwind), `render.yaml` (Render Blueprint).
 
 ## Lokalno
-Backend: `cd backend && cp .env.example .env && npm i && npx prisma db push && npm run seed && npm run dev`
+Backend: `cd backend && cp .env.example .env && pip install -r requirements.txt && python manage.py migrate && python manage.py seed && python manage.py runserver`
 Frontend: `cd frontend && cp .env.example .env.local && npm i && npm run dev`
-
-Demo korisnik: `ana.petrovic@email.com` / `Lozinka123`
 
 Admin nalog se kreira iz backend `.env` vrednosti:
 
@@ -15,7 +13,19 @@ ADMIN_EMAIL="tvoj-admin-email"
 ADMIN_PASSWORD="duga-jaka-lozinka"
 ```
 
-Posle toga pokreni `npm run seed` u `backend/`.
+Posle toga pokreni `python manage.py seed` u `backend/`.
+
+Django admin panel:
+
+```text
+http://localhost:8000/admin
+```
+
+Na Renderu:
+
+```text
+https://mina-api-2785.onrender.com/admin
+```
 
 Admin može da doda nove admin naloge iz admin panela na sajtu. Backend endpoint je:
 
@@ -31,7 +41,7 @@ Body:
 }
 ```
 
-Endpoint traži postojeći admin JWT token, tako da obični korisnici ne mogu da prave admin naloge.
+Endpoint traži postojeći admin JWT token, tako da obični korisnici ne mogu da prave admin naloge. Najlakše je ipak koristiti Django admin panel za ručno dodavanje korisnika, tretmana i zakazivanja.
 
 ## Render
 Deploy ide preko Blueprint-a iz `render.yaml`.
@@ -42,4 +52,4 @@ Obavezno podesi ove Render environment vrednosti:
 - `NEXT_PUBLIC_API_URL`: URL backend servisa, npr. `https://mina-api.onrender.com`
 - `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`: podaci za admin nalog
 
-`JWT_SECRET` Render generiše automatski. Nemoj ga commitovati u GitHub.
+`SECRET_KEY` Render generiše automatski. Nemoj ga commitovati u GitHub.
