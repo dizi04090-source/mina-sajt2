@@ -17,6 +17,22 @@ ADMIN_PASSWORD="duga-jaka-lozinka"
 
 Posle toga pokreni `npm run seed` u `backend/`.
 
+Admin može da doda nove admin naloge iz admin panela na sajtu. Backend endpoint je:
+
+`POST /api/admin/admins`
+
+Body:
+
+```json
+{
+  "fullName": "Ime Admina",
+  "email": "admin@example.com",
+  "password": "JakaLozinka123"
+}
+```
+
+Endpoint traži postojeći admin JWT token, tako da obični korisnici ne mogu da prave admin naloge.
+
 ## Render
 Deploy ide preko Blueprint-a iz `render.yaml`.
 

@@ -7,9 +7,11 @@ import { api, hasApi } from '../lib/api';
 const NAV = [['home', 'Početna', 'home'], ['treatments', 'Tretmani', 'spa'], ['b1', 'Zakazivanje', 'calendar'], ['profile', 'Profil', 'user']];
 const STEPS = ['Tretman', 'Datum', 'Vreme', 'Potvrda'];
 const toneOf = name => ({ Lice: 'lice', Telo: 'telo', 'Masaže': 'masaze', Depilacija: 'depilacija', Wellness: 'wellness' }[name] || 'lice');
+const listOf = value => Array.isArray(value) ? value : [];
+const emptyAdmin = { counts: { users: 0, bookings: 0, pending: 0, treatments: 0 }, bookings: [] };
 
 export default function Mobile() {
-  const [s, setS] = useState('splash');
+  const [s, setS] = useState('register');
   const [cat, setCat] = useState('Svi'), [q, setQ] = useState(''), [tab, setTab] = useState('Aktivna');
   const [bk, setBk] = useState({ t: TREATMENTS[1], day: new Date().getDate(), time: '09:00', note: '' });
   const [list, setList] = useState(BOOKINGS), [hist, setHist] = useState(HISTORY);
@@ -18,10 +20,10 @@ export default function Mobile() {
   const [admin, setAdmin] = useState(null);
   const set = k => e => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
   const STAT = { PENDING: 'Na čekanju', CONFIRMED: 'Potvrđeno', COMPLETED: 'Završeno', CANCELLED: 'Otkazano' };
-  const fmtB = b => { const d = new Date(b.startsAt); return { id: b.id, treatment: b.treatment.name, priceRsd: b.treatment.priceRsd, when: `${d.toLocaleDateString('sr-Latn')} • ${d.toTimeString().slice(0, 5)}`, status: STAT[b.status], tone: toneOf(b.treatment.category?.name) }; };
-  const reload = async t => { const r = await api('/api/bookings/my', { token: t }); setList(r.active.map(fmtB)); setHist(r.history.map(fmtB)); };
-  const reloadAdmin = async t => { if (!hasApi) return; setAdmin(await api('/api/admin/overview', { token: t })); };
-  useEffect(() => { if (!hasApi) return; api('/api/treatments').then(r => { const x = r.map(t => ({ id: t.id, name: t.name, priceRsd: t.priceRsd, durationMin: t.durationMin, category: t.category.name, tone: toneOf(t.category.name), popular: t.popular })); setTR(x); setBk(b => ({ ...b, t: x[1] || x[0] })); }).catch(() => {}); }, []);
+  const fmtB = b => { const d = new Date(b.startsAt); return { id: b.id, treatment: b.treatment?.name || 'Tretman', priceRsd: b.treatment?.priceRsd || 0, when: `${d.toLocaleDateString('sr-Latn')} • ${d.toTimeString().slice(0, 5)}`, status: STAT[b.status] || b.status, tone: toneOf(b.treatment?.category?.name) }; };
+  const reload = async t => { const r = await api('/api/bookings/my', { token: t }); setList(listOf(r.active).map(fmtB)); setHist(listOf(r.history).map(fmtB)); };
+  const reloadAdmin = async t => { if (!hasApi) return; const r = await api('/api/admin/overview', { token: t }); setAdmin({ ...emptyAdmin, ...r, counts: { ...emptyAdmin.counts, ...(r.counts || {}) }, bookings: listOf(r.bookings) }); };
+  useEffect(() => { if (!hasApi) return; api('/api/treatments').then(r => { const x = listOf(r).map(t => ({ id: t.id, name: t.name, priceRsd: t.priceRsd, durationMin: t.durationMin, category: t.category?.name || 'Lice', tone: toneOf(t.category?.name), popular: t.popular })); setTR(x.length ? x : TREATMENTS); setBk(b => ({ ...b, t: x[1] || x[0] || b.t })); }).catch(() => {}); }, []);
   useEffect(() => {
     const saved = typeof window !== 'undefined' && localStorage.getItem('minaSession');
     if (!saved || !hasApi) return;
@@ -49,7 +51,7 @@ export default function Mobile() {
   const Err = () => err ? <p role="alert" className="text-sm text-red-600">{err}</p> : null;
   useEffect(() => { if (s === 'splash') { const t = setTimeout(() => setS(current => current === 'splash' ? 'login' : current), 2200); return () => clearTimeout(t); } }, [s]);
 
-  const shown = TR.filter(t => (cat === 'Svi' || t.category === cat) && t.name.toLowerCase().includes(q.toLowerCase()));
+  const shown = listOf(TR).filter(t => (cat === 'Svi' || t.category === cat) && t.name.toLowerCase().includes(q.toLowerCase()));
   const step = { b1: 0, b2: 1, b3: 3 }[s];
   const withNav = ['home', 'treatments', 'b1', 'b2', 'b3', 'my', 'profile', 'admin'].includes(s);
   const confirm = async () => {
@@ -143,13 +145,13 @@ export default function Mobile() {
         {s === 'admin' && <div className="space-y-4"><Head title="Admin panel" back="home" />
           {!admin ? <p className="text-center text-mina/60">Učitavanje podataka...</p> : <>
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="rounded-2xl bg-white p-3 shadow-soft"><b className="block text-lg text-mina">{admin.counts.users}</b>Korisnici</div>
-              <div className="rounded-2xl bg-white p-3 shadow-soft"><b className="block text-lg text-mina">{admin.counts.bookings}</b>Termini</div>
-              <div className="rounded-2xl bg-white p-3 shadow-soft"><b className="block text-lg text-mina">{admin.counts.pending}</b>Na čekanju</div>
+              <div className="rounded-2xl bg-white p-3 shadow-soft"><b className="block text-lg text-mina">{admin.counts?.users || 0}</b>Korisnici</div>
+              <div className="rounded-2xl bg-white p-3 shadow-soft"><b className="block text-lg text-mina">{admin.counts?.bookings || 0}</b>Termini</div>
+              <div className="rounded-2xl bg-white p-3 shadow-soft"><b className="block text-lg text-mina">{admin.counts?.pending || 0}</b>Na čekanju</div>
             </div>
             <h2 className="font-semibold">Najnovija zakazivanja</h2>
-            {admin.bookings.map(b => <div key={b.id} className="rounded-2xl bg-white p-3 text-sm shadow-soft">
-              <div className="flex gap-3"><Thumb tone={toneOf(b.treatment.category?.name)} /><div className="flex-1"><b>{b.treatment.name}</b><div className="text-mina/60">{b.user.fullName}</div><div className="text-xs text-mina/50">{new Date(b.startsAt).toLocaleString('sr-Latn')}</div></div><Badge s={STAT[b.status]} /></div>
+            {listOf(admin.bookings).map(b => <div key={b.id} className="rounded-2xl bg-white p-3 text-sm shadow-soft">
+              <div className="flex gap-3"><Thumb tone={toneOf(b.treatment?.category?.name)} /><div className="flex-1"><b>{b.treatment?.name || 'Tretman'}</b><div className="text-mina/60">{b.user?.fullName || 'Korisnik'}</div><div className="text-xs text-mina/50">{new Date(b.startsAt).toLocaleString('sr-Latn')}</div></div><Badge s={STAT[b.status] || b.status} /></div>
               <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                 <button onClick={() => setStatus(b.id, 'CONFIRMED')} className="rounded-full bg-emerald-50 px-2 py-2 text-emerald-700">Potvrdi</button>
                 <button onClick={() => setStatus(b.id, 'COMPLETED')} className="rounded-full bg-lav px-2 py-2 text-mina">Završi</button>

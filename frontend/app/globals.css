@@ -2,6 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Nunito+Sans:wght@400;600;700&display=swap');
 body { @apply bg-paper text-[#2d2236] font-sans; }
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #6B4E91; outline-offset: 2px; }
+button { transition-property: color, background-color, border-color, transform, box-shadow, opacity; transition-duration: 180ms; }
 .treatment-lice { background: linear-gradient(135deg, #f4d8d5 0%, #efe3f5 52%, #c7b1dc 100%); }
 .treatment-masaze { background: linear-gradient(135deg, #d8c0b4 0%, #f1dfd8 50%, #eadff3 100%); }
 .treatment-telo { background: linear-gradient(135deg, #e8d6c8 0%, #f5e9e0 48%, #d8cbea 100%); }
@@ -12,4 +13,17 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
     radial-gradient(circle at 78% 38%, rgba(255,255,255,.62) 0 12%, transparent 13%),
     linear-gradient(105deg, rgba(250,248,252,.95) 0 42%, rgba(231,219,241,.86) 42% 100%),
     linear-gradient(135deg, #f3efff, #d8c8e8);
+}
+.auth-shell {
+  background:
+    linear-gradient(120deg, rgba(234,229,243,.92), rgba(250,248,252,.96)),
+    radial-gradient(circle at 20% 20%, rgba(94,59,118,.18), transparent 34%);
+}
+.animate-rise { animation: rise-in .55s ease both; }
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }

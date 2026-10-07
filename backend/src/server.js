@@ -38,6 +38,11 @@ const cleanEmail = email => String(email || '').trim().toLowerCase();
 const publicUser = ({ passwordHash, ...user }) => user;
 const strongPassword = password => typeof password === 'string' && password.length >= 8 && /[A-Za-z]/.test(password) && /\d/.test(password);
 const signToken = (user, remember) => jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: remember ? '30d' : '1d' });
+const bookingInclude = {
+  user: { select: { id: true, fullName: true, email: true } },
+  treatment: { include: { category: true } },
+  messages: { include: { sender: { select: { id: true, fullName: true, role: true } } }, orderBy: { createdAt: 'asc' } },
+};
 
 const auth = wrap(async (req, res, next) => {
   const raw = req.headers.authorization || '';
@@ -68,6 +73,22 @@ app.post('/api/auth/register', authLimiter, wrap(async (req, res) => {
   if (await prisma.user.findUnique({ where: { email } })) return res.status(409).json({ error: 'Email je već registrovan' });
   const user = await prisma.user.create({ data: { fullName, email, passwordHash: await bcrypt.hash(password, 12) } });
   res.status(201).json({ token: signToken(user), user: publicUser(user) });
+}));
+
+app.post('/api/admin/admins', auth, adminOnly, authLimiter, wrap(async (req, res) => {
+  const fullName = String(req.body.fullName || '').trim();
+  const email = cleanEmail(req.body.email);
+  const { password } = req.body;
+  if (!fullName || !email || !strongPassword(password)) {
+    return res.status(400).json({ error: 'Unesite ime, validan email i lozinku sa najmanje 8 znakova, slovom i brojem' });
+  }
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    const user = await prisma.user.update({ where: { email }, data: { role: 'ADMIN' } });
+    return res.json({ user: publicUser(user), created: false });
+  }
+  const user = await prisma.user.create({ data: { fullName, email, role: 'ADMIN', passwordHash: await bcrypt.hash(password, 12) } });
+  res.status(201).json({ user: publicUser(user), created: true });
 }));
 
 app.post('/api/auth/login', authLimiter, wrap(async (req, res) => {
@@ -122,6 +143,7 @@ app.post('/api/bookings', auth, wrap(async (req, res) => {
     data: { userId: req.user.id, treatmentId, startsAt, note: note ? String(note).slice(0, 500) : null, ...(location && { location: String(location).slice(0, 160) }) },
     include: { treatment: { include: { category: true } } },
   });
+  if (note) await prisma.bookingMessage.create({ data: { bookingId: booking.id, senderId: req.user.id, body: String(note).slice(0, 1000) } });
   await prisma.notification.create({ data: { userId: req.user.id, title: 'Zakazivanje primljeno', body: `${booking.treatment.name} čeka potvrdu.` } });
   res.status(201).json(booking);
 }));
@@ -142,6 +164,32 @@ app.delete('/api/bookings/:id', auth, wrap(async (req, res) => {
   res.json(await prisma.booking.update({ where: { id: booking.id }, data: { status: 'CANCELLED' } }));
 }));
 
+app.get('/api/bookings/:id/messages', auth, wrap(async (req, res) => {
+  const booking = await prisma.booking.findUnique({ where: { id: req.params.id }, select: { userId: true } });
+  if (!booking) return res.status(404).json({ error: 'Zakazivanje nije pronađeno' });
+  if (booking.userId !== req.user.id && req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Nemate pristup ovom razgovoru' });
+  res.json(await prisma.bookingMessage.findMany({
+    where: { bookingId: req.params.id },
+    include: { sender: { select: { id: true, fullName: true, role: true } } },
+    orderBy: { createdAt: 'asc' },
+  }));
+}));
+
+app.post('/api/bookings/:id/messages', auth, wrap(async (req, res) => {
+  const body = String(req.body.body || '').trim().slice(0, 1000);
+  if (!body) return res.status(400).json({ error: 'Poruka ne može biti prazna' });
+  const booking = await prisma.booking.findUnique({ where: { id: req.params.id }, select: { userId: true } });
+  if (!booking) return res.status(404).json({ error: 'Zakazivanje nije pronađeno' });
+  if (booking.userId !== req.user.id && req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Nemate pristup ovom razgovoru' });
+  const message = await prisma.bookingMessage.create({
+    data: { bookingId: req.params.id, senderId: req.user.id, body },
+    include: { sender: { select: { id: true, fullName: true, role: true } } },
+  });
+  const notifyUserId = req.user.role === 'ADMIN' ? booking.userId : null;
+  if (notifyUserId) await prisma.notification.create({ data: { userId: notifyUserId, title: 'Nova poruka za termin', body } });
+  res.status(201).json(message);
+}));
+
 // Admin
 app.get('/api/admin/overview', auth, adminOnly, wrap(async (_, res) => {
   const [users, bookings, pending, treatments, latest] = await Promise.all([
@@ -150,9 +198,9 @@ app.get('/api/admin/overview', auth, adminOnly, wrap(async (_, res) => {
     prisma.booking.count({ where: { status: 'PENDING' } }),
     prisma.treatment.count(),
     prisma.booking.findMany({
-      take: 12,
+      take: 50,
       orderBy: { startsAt: 'desc' },
-      include: { user: { select: { fullName: true, email: true } }, treatment: { include: { category: true } } },
+      include: bookingInclude,
     }),
   ]);
   res.json({ counts: { users, bookings, pending, treatments }, bookings: latest });
@@ -165,7 +213,7 @@ app.get('/api/admin/users', auth, adminOnly, wrap(async (_, res) => {
 app.get('/api/admin/bookings', auth, adminOnly, wrap(async (req, res) => {
   res.json(await prisma.booking.findMany({
     where: req.query.status ? { status: String(req.query.status) } : {},
-    include: { user: { select: { fullName: true, email: true } }, treatment: { include: { category: true } } },
+    include: bookingInclude,
     orderBy: { startsAt: 'desc' },
   }));
 }));
@@ -173,7 +221,10 @@ app.get('/api/admin/bookings', auth, adminOnly, wrap(async (req, res) => {
 app.patch('/api/admin/bookings/:id', auth, adminOnly, wrap(async (req, res) => {
   const { status } = req.body;
   if (!Object.values(BookingStatus).includes(status)) return res.status(400).json({ error: 'Status nije validan' });
-  res.json(await prisma.booking.update({ where: { id: req.params.id }, data: { status } }));
+  const booking = await prisma.booking.update({ where: { id: req.params.id }, data: { status }, include: bookingInclude });
+  const title = status === 'CONFIRMED' ? 'Termin je potvrđen' : status === 'CANCELLED' ? 'Termin je otkazan' : status === 'COMPLETED' ? 'Termin je završen' : 'Status termina je promenjen';
+  await prisma.notification.create({ data: { userId: booking.userId, title, body: `${booking.treatment.name}: ${title.toLowerCase()}.` } });
+  res.json(booking);
 }));
 
 app.post('/api/admin/treatments', auth, adminOnly, wrap(async (req, res) => {
