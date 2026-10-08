@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { TREATMENTS, BOOKINGS, HISTORY, SLOTS, SALON, USER, CATEGORIES, fmt } from '../lib/mock';
 import { Logo, Btn, Ghost, Field, Badge, Thumb, Calendar, lab, iso, LineIcon } from './ui';
 import { api, hasApi } from '../lib/api';
+import { HeroImage, Modal, usePageMotion } from './motion';
 
 const NAV = [['home', 'Početna', 'home'], ['treatments', 'Tretmani', 'spa'], ['b1', 'Zakazivanje', 'calendar'], ['profile', 'Profil', 'user']];
 const STEPS = ['Tretman', 'Datum', 'Vreme', 'Potvrda'];
@@ -15,10 +16,28 @@ export default function Mobile() {
   const [s, setS] = useState('register');
   const [cat, setCat] = useState('Svi'), [q, setQ] = useState(''), [tab, setTab] = useState('Aktivna');
   const [bk, setBk] = useState({ t: TREATMENTS[1], day: new Date().getDate(), time: '09:00', note: '' });
-  const [list, setList] = useState(BOOKINGS), [hist, setHist] = useState(HISTORY);
+  const [list, setList] = useState([]), [hist, setHist] = useState([]);
   const [TR, setTR] = useState(TREATMENTS), [tok, setTok] = useState(null), [user, setUser] = useState(USER), [err, setErr] = useState('');
   const [f, setF] = useState({ name: '', email: '', password: '', confirm: '', remember: false });
   const [admin, setAdmin] = useState(null);
+  const [popup, setPopup] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [message, setMessage] = useState('');
+  const root = usePageMotion(`${s}-${TR.length}`);
+  const openMessages = async booking => {
+    setErr(''); setMessages([]); setSelected(booking);
+    try { setMessages(listOf(await api(`/api/bookings/${booking.id}/messages`, { token: tok }))); }
+    catch (e) { setErr(e.message); }
+  };
+  const sendMessage = async () => {
+    if (!message.trim() || busy) return;
+    setBusy(true); setErr('');
+    try { const result = await api(`/api/bookings/${selected.id}/messages`, { token: tok, method: 'POST', body: { body: message } }); setMessages(previous => [...previous, result]); setMessage(''); }
+    catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  };
   const set = k => e => setF({ ...f, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
   const STAT = { PENDING: 'Na čekanju', CONFIRMED: 'Potvrđeno', COMPLETED: 'Završeno', CANCELLED: 'Otkazano' };
   const fmtB = b => { const d = new Date(b.startsAt); return { id: b.id, treatment: b.treatment?.name || 'Tretman', priceRsd: b.treatment?.priceRsd || 0, when: `${d.toLocaleDateString('sr-Latn')} • ${d.toTimeString().slice(0, 5)}`, status: STAT[b.status] || b.status, tone: toneOf(b.treatment?.category?.name) }; };
@@ -39,7 +58,9 @@ export default function Mobile() {
     }
   }, []);
   const auth = async mode => {
-    setErr(''); if (!hasApi) return setS('home');
+    setErr(''); if (!hasApi) return setErr('Povezivanje sa salonom trenutno nije dostupno. Pokušajte kasnije.');
+    if (busy) return;
+    setBusy(true);
     try {
       if (mode === 'register' && f.password !== f.confirm) throw new Error('Lozinke se ne poklapaju');
       const r = await api('/api/auth/' + mode, { method: 'POST', body: mode === 'login' ? { email: f.email, password: f.password, remember: f.remember } : { fullName: f.name, email: f.email, password: f.password } });
@@ -49,9 +70,9 @@ export default function Mobile() {
       if (f.remember) localStorage.setItem('minaSession', JSON.stringify({ token: r.token, user: authUser }));
       else localStorage.removeItem('minaSession');
       if (authUser.role === 'ADMIN') await reloadAdmin(r.token);
-    } catch (e) { setErr(e.message); }
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
-  const setStatus = async (id, status) => { await api('/api/admin/bookings/' + id, { method: 'PATCH', token: tok, body: { status } }); await reloadAdmin(tok); };
+  const setStatus = async (id, status) => { try { await api('/api/admin/bookings/' + id, { method: 'PATCH', token: tok, body: { status } }); await reloadAdmin(tok); } catch (e) { setErr(e.message); } };
   const cancel = async id => { try { if (hasApi) await api('/api/bookings/' + id, { method: 'DELETE', token: tok }); setList(list.filter(x => x.id !== id)); } catch (e) { setErr(e.message); } };
   const Err = () => err ? <p role="alert" className="text-sm text-red-600">{err}</p> : null;
   useEffect(() => { if (s === 'splash') { const t = setTimeout(() => setS(current => current === 'splash' ? 'login' : current), 2200); return () => clearTimeout(t); } }, [s]);
@@ -61,11 +82,14 @@ export default function Mobile() {
   const withNav = ['home', 'treatments', 'b1', 'b2', 'b3', 'my', 'profile', 'admin'].includes(s);
   const confirm = async () => {
     setErr('');
+    if (!hasApi || !tok) return setErr('Prijavite se da biste sačuvali termin.');
+    if (busy) return;
+    setBusy(true);
     try {
       if (hasApi) { await api('/api/bookings', { method: 'POST', token: tok, body: { treatmentId: bk.t.id, date: iso(bk.day), time: bk.time, note: bk.note } }); await reload(tok); }
-      else setList([...list, { id: Date.now() + '', treatment: bk.t.name, priceRsd: bk.t.priceRsd, when: `${lab(bk.day)} • ${bk.time}`, status: 'Na čekanju', tone: bk.t.tone }]);
       setS('my');
-    } catch (e) { setErr(e.message); }
+      setPopup(null);
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   const Row = ({ t, onClick, right }) => (
     <button onClick={onClick} className="flex w-full items-center gap-3 rounded-2xl bg-white p-3 text-left shadow-soft">
@@ -79,36 +103,34 @@ export default function Mobile() {
       <div key={l} className="flex flex-col items-center text-[11px]"><span className={`grid h-7 w-7 place-items-center rounded-full ${i <= step ? 'bg-mina text-white' : 'bg-lav-2 text-mina/50'}`}>{i + 1}</span>{l}</div>))}</div>);
 
   return (
-    <div className="relative flex min-h-screen w-full max-w-md flex-col bg-paper">
+    <div ref={root} className={`mobile-shell relative flex min-h-screen w-full max-w-md flex-col bg-paper ${['register', 'login'].includes(s) ? 'mobile-auth' : ''}`}>
       <main className="flex-1 overflow-y-auto p-5 pb-24">
         {s === 'splash' && <div className="grid min-h-[80vh] place-items-center bg-gradient-to-b from-lav-2 to-lav text-center"><div><Logo size="text-7xl" /><p className="mt-6 text-sm text-mina">Tvoje zdravlje. Tvoja lepota.<br />Naša briga.</p></div></div>}
 
         {s === 'login' && <div className="space-y-4 pt-6"><Logo size="text-4xl" />
           <h1 className="font-serif text-3xl text-mina">Prijavite se</h1><p className="text-sm text-mina/70">Dobrodošli nazad! Uživajte u svojim omiljenim tretmanima.</p>
           <Field icon="mail" type="email" placeholder="Email adresa" value={f.email} onChange={set('email')} /><Field icon="lock" type="password" placeholder="Lozinka" value={f.password} onChange={set('password')} />
-          <div className="flex justify-between text-sm"><label><input type="checkbox" checked={f.remember} onChange={set('remember')} className="mr-2 accent-mina" />Zapamti me</label><a className="text-mina">Zaboravili ste lozinku?</a></div>
-          <Err /><Btn className="w-full" onClick={() => auth('login')}>Prijavite se</Btn>
-          <p className="text-center text-xs text-mina/60">ili se prijavite preko</p>
-          <div className="flex justify-center gap-4">{['G', 'A', 'f'].map((x, i) => <button key={i} aria-label={['Google', 'Apple', 'Facebook'][i]} className="h-12 w-12 rounded-full bg-white font-bold text-mina shadow-soft">{x}</button>)}</div>
+          <div className="flex justify-between text-sm"><label><input type="checkbox" checked={f.remember} onChange={set('remember')} className="mr-2 accent-mina" />Zapamti me</label><button className="text-mina" onClick={() => setPopup('Pomoć pri prijavi')}>Zaboravljena lozinka?</button></div>
+          <Err /><Btn disabled={busy} className="w-full" onClick={() => auth('login')}>{busy ? 'Sačekajte...' : 'Prijavite se'}</Btn>
           <p className="text-center text-sm">Nemate nalog? <button className="font-semibold text-mina" onClick={() => setS('register')}>Napravite nalog</button></p></div>}
 
         {s === 'register' && <div className="space-y-4 pt-6"><Logo size="text-4xl" />
           <h1 className="font-serif text-3xl text-mina">Napravi nalog</h1><p className="text-sm text-mina/70">Postanite deo naše zajednice i otkrijte sve pogodnosti.</p>
           <Field icon="user" placeholder="Ime i prezime" value={f.name} onChange={set('name')} /><Field icon="mail" type="email" placeholder="Email adresa" value={f.email} onChange={set('email')} />
           <Field icon="lock" type="password" placeholder="Lozinka (min. 8 znakova)" value={f.password} onChange={set('password')} /><Field icon="lock" type="password" placeholder="Potvrdite lozinku" value={f.confirm} onChange={set('confirm')} />
-          <Err /><Btn className="w-full" onClick={() => auth('register')}>Napravi nalog</Btn>
+          <Err /><Btn disabled={busy} className="w-full" onClick={() => auth('register')}>{busy ? 'Sačekajte...' : 'Napravi nalog'}</Btn>
           <p className="text-center text-sm">Već imate nalog? <button className="font-semibold text-mina" onClick={() => setS('login')}>Prijavite se</button></p></div>}
 
         {s === 'home' && <div className="space-y-5">
           <div><h1 className="font-serif text-3xl text-mina">Zdravo, {user.fullName.split(' ')[0]}!</h1><p className="text-sm text-mina/70">Brinemo o tvom zdravlju i lepoti.</p></div>
-          <div className="rounded-3xl bg-gradient-to-br from-mina to-mina-2 p-5 text-white shadow-soft"><h2 className="font-serif text-3xl leading-tight">Oseti razliku,<br />izaberi sebe.</h2>
+          <div className="hero-photo mobile-hero p-5 text-mina shadow-soft"><HeroImage /><h2 className="font-serif text-3xl leading-tight">Oseti razliku,<br />izaberi sebe.</h2>
             <button onClick={() => setS('b1')} className="mt-4 rounded-full bg-white px-4 py-2 text-sm font-semibold text-mina">Zakazivanje tretmana</button></div>
           <div className="grid grid-cols-4 gap-2 text-center text-xs">{[['spa', 'Tretmani', 'treatments'], ['card', 'Paketi'], ['plus', 'Kozmetika'], ['phone', 'Sa nama']].map(([e, l, to]) => (
-            <button key={l} onClick={() => to && setS(to)} className="rounded-2xl bg-white p-3 shadow-soft"><LineIcon name={e} className="mx-auto mb-1 h-5 w-5 text-mina" />{l}</button>))}</div>
+            <button key={l} onClick={() => { if (to) setS(to); else if (l === 'Paketi') { setCat('Wellness'); setS('treatments'); } else setPopup(l); }} className="rounded-lg bg-white p-3 shadow-soft"><LineIcon name={e} className="mx-auto mb-1 h-5 w-5 text-mina" />{l}</button>))}</div>
           {user.role === 'ADMIN' && <Ghost className="w-full" onClick={() => { reloadAdmin(tok); setS('admin'); }}>Admin panel</Ghost>}
           <div className="flex justify-between"><h2 className="font-semibold">Popularni tretmani</h2><button className="text-xs text-mina" onClick={() => setS('treatments')}>Pogledaj sve →</button></div>
           <div className="flex gap-3 overflow-x-auto pb-2">{TR.filter(t => t.popular).map(t => (
-            <div key={t.id} className="w-32 shrink-0 rounded-2xl bg-white p-2 text-xs shadow-soft"><Thumb tone={t.tone} className="mb-2 h-20 w-full" /><b>{t.name}</b><div className="text-mina/60">{fmt(t.priceRsd)}</div></div>))}</div></div>}
+            <button key={t.id} onClick={() => { setBk({ ...bk, t }); setS('b2'); }} className="w-36 shrink-0 rounded-lg bg-white p-2 text-left text-xs shadow-soft"><Thumb tone={t.tone} className="mb-2 h-24 w-full" /><b>{t.name}</b><div className="text-mina/60">{fmt(t.priceRsd)}</div></button>))}</div></div>}
 
         {s === 'treatments' && <div className="space-y-4"><h1 className="text-center font-semibold">Tretmani</h1>
           <Field icon="search" placeholder="Pretraži tretmane..." value={q} onChange={e => setQ(e.target.value)} />
@@ -131,23 +153,25 @@ export default function Mobile() {
             <div className="flex gap-3"><Thumb tone={bk.t.tone} /><div><b>{bk.t.name}</b><div>{fmt(bk.t.priceRsd)}</div><div className="text-mina/60">{bk.t.durationMin} min</div></div></div>
             <p>Datum: {lab(bk.day)}</p><p>Vreme: {bk.time}</p><p>Lokacija: {SALON}</p></div>
           <textarea value={bk.note} onChange={e => setBk({ ...bk, note: e.target.value })} placeholder="Dodaj napomenu (opciono)..." className="mt-3 h-24 w-full rounded-2xl border border-lav-2 p-3 outline-none" />
-          <div className="mt-3"><Err /></div><Btn className="mt-3 w-full" onClick={confirm}>Potvrdi zakazivanje</Btn></>}
+          <div className="mt-3"><Err /></div><Btn className="mt-3 w-full" onClick={() => setPopup('Potvrdi termin')}>Potvrdi zakazivanje</Btn></>}
 
         {s === 'my' && <div className="space-y-4"><h1 className="font-semibold">Moja zakazivanja</h1>
           <div className="grid grid-cols-2 rounded-full bg-lav-2 p-1 text-sm">{['Aktivna', 'Istorija'].map(t => <button key={t} onClick={() => setTab(t)} className={`rounded-full py-2 font-semibold ${tab === t ? 'bg-mina text-white' : 'text-mina'}`}>{t}</button>)}</div>
           {(tab === 'Aktivna' ? list : hist).map(b => (
             <div key={b.id} className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-soft"><Thumb tone={b.tone} />
               <div className="flex-1 text-sm"><div className="flex justify-between"><b>{b.treatment}</b><Badge s={b.status} /></div><div className="text-mina/70">{fmt(b.priceRsd)}</div><div className="text-xs text-mina/50">{b.when}</div></div>
-              {tab === 'Aktivna' && <button aria-label="Otkaži" className="text-xs text-red-600" onClick={() => cancel(b.id)}>Otkaži</button>}</div>))}
+              <div className="flex flex-col gap-3"><button className="text-xs text-mina" onClick={() => openMessages(b)}>Poruke</button>{tab === 'Aktivna' && <button aria-label="Otkaži" className="text-xs text-red-600" onClick={() => cancel(b.id)}>Otkaži</button>}</div></div>))}
+          <Err />
           <Ghost className="w-full" onClick={() => setS('b1')}>Zakazivanje tretmana</Ghost></div>}
 
         {s === 'profile' && <div className="space-y-4 text-center"><div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-lav-2 text-mina"><LineIcon name="user" className="h-8 w-8" /></div>
           <div><h1 className="text-xl font-semibold">{user.fullName}</h1><p className="text-sm text-mina/70">{user.email}</p></div>
           <div className="rounded-2xl bg-white text-left shadow-soft">{[['Moji podaci'], ['Moja zakazivanja', 'my'], ['Moj novčanik', null, '0 RSD'], ['Obaveštenja'], ['Postavke'], ['Pomoć']].map(([l, to, x]) => (
-            <button key={l} onClick={() => to && setS(to)} className="flex w-full justify-between border-b border-lav px-4 py-3 last:border-0"><span>{l}</span><span className="text-mina/60">{x ?? '›'}</span></button>))}</div>
+            <button key={l} onClick={() => to ? setS(to) : setPopup(l)} className="flex w-full justify-between border-b border-lav px-4 py-3 last:border-0"><span>{l}</span><span className="text-mina/60">{x ?? '›'}</span></button>))}</div>
           <Ghost className="w-full" onClick={() => { localStorage.removeItem('minaSession'); setTok(null); setUser(USER); setS('login'); }}>Odjavi se</Ghost></div>}
 
         {s === 'admin' && <div className="space-y-4"><Head title="Admin panel" back="home" />
+          <Err />
           {!admin ? <p className="text-center text-mina/60">Učitavanje podataka...</p> : <>
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className="rounded-2xl bg-white p-3 shadow-soft"><b className="block text-lg text-mina">{admin.counts?.users || 0}</b>Korisnici</div>
@@ -162,6 +186,7 @@ export default function Mobile() {
                 <button onClick={() => setStatus(b.id, 'COMPLETED')} className="rounded-full bg-lav px-2 py-2 text-mina">Završi</button>
                 <button onClick={() => setStatus(b.id, 'CANCELLED')} className="rounded-full bg-red-50 px-2 py-2 text-red-700">Otkaži</button>
               </div>
+              <button className="mt-3 text-xs font-semibold text-mina" onClick={() => openMessages({ ...b, treatment: b.treatment?.name })}>Razgovor sa klijentom</button>
             </div>)}
           </>}</div>}
       </main>
@@ -170,5 +195,9 @@ export default function Mobile() {
         {NAV.map(([k, l, e]) => { const on = k === s || (k === 'b1' && ['b2', 'b3', 'my'].includes(s));
           return <button key={k} onClick={() => setS(k === 'b1' && s === 'my' ? 'my' : k)} className={`flex flex-col items-center gap-0.5 ${on ? 'font-bold text-mina' : 'text-mina/50'}`}><LineIcon name={e} className="h-5 w-5" />{l}</button>; })}
       </nav>}
+      <Modal open={Boolean(popup)} onClose={() => !busy && setPopup(null)} title={popup || ''}>
+        {popup === 'Potvrdi termin' ? <><p className="font-semibold">{bk.t.name}</p><p className="my-3 text-sm text-mina/70">{lab(bk.day)} · {bk.time}<br />{fmt(bk.t.priceRsd)}</p><Err /><Btn disabled={busy} className="mt-4 w-full" onClick={confirm}>{busy ? 'Slanje...' : 'Pošalji zahtev'}</Btn></> : popup === 'Moji podaci' ? <><p>{user.fullName}</p><p className="mt-2 text-sm text-mina/70">{user.email}</p></> : popup === 'Moj novčanik' ? <p>Stanje: {fmt(user.walletRsd || 0)}</p> : popup === 'Postavke' ? <><label className="flex items-center gap-3"><input type="checkbox" checked={f.remember} onChange={set('remember')} />Zapamti prijavu na ovom uređaju</label><Btn className="mt-5 w-full" onClick={() => { if (f.remember && tok) localStorage.setItem('minaSession', JSON.stringify({ token: tok, user })); else localStorage.removeItem('minaSession'); setPopup(null); }}>Sačuvaj</Btn></> : popup === 'Obaveštenja' ? <p className="text-sm text-mina/70">Najnoviji status svojih termina i poruke salona možeš pogledati u zakazivanjima.</p> : <p className="text-sm leading-relaxed text-mina/70">{popup === 'Kozmetika' ? 'Za preporuku proizvoda pošalji salonu poruku uz svoj termin.' : popup === 'Pomoć pri prijavi' ? 'Za promenu zaboravljene lozinke obrati se salonu. Administrator može obnoviti pristup tvom nalogu.' : SALON}</p>}
+      </Modal>
+      <Modal open={Boolean(selected)} onClose={() => !busy && setSelected(null)} title="Razgovor o terminu"><p className="mb-4 text-sm text-mina/60">{selected?.treatment}</p><div className="max-h-64 space-y-2 overflow-y-auto">{messages.map(m => <div key={m.id} className={`rounded-lg p-3 text-sm ${m.sender?.role === 'ADMIN' ? 'bg-lav' : 'bg-gray-50'}`}><b className="block text-xs text-mina/60">{m.sender?.fullName}</b>{m.body}</div>)}</div><textarea aria-label="Poruka" value={message} onChange={e => setMessage(e.target.value)} placeholder="Napiši poruku..." className="my-4 h-24 w-full rounded-lg border border-lav-2 p-3" /><Err /><Btn disabled={busy} className="w-full" onClick={sendMessage}>Pošalji poruku</Btn></Modal>
     </div>);
 }

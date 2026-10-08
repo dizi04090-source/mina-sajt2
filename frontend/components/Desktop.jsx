@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { TREATMENTS, SLOTS, FAQ, fmt } from '../lib/mock';
 import { api, hasApi } from '../lib/api';
 import { Logo, Btn, Badge, Thumb, Faq, LineIcon } from './ui';
+import { HeroImage, Modal, usePageMotion } from './motion';
 
 const MENU = [
   ['home', 'Početna', 'home'],
@@ -39,6 +40,9 @@ export default function Desktop() {
   const [adminForm, setAdminForm] = useState({ fullName: '', email: '', password: '' });
   const [notice, setNotice] = useState('');
   const [err, setErr] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const root = usePageMotion(`${view}-${authMode}-${Boolean(user)}-${treatments.length}`);
 
   const nav = user?.role === 'ADMIN' ? MENU.concat(ADMIN_MENU) : MENU;
   const shownTreatments = useMemo(() => listOf(treatments).filter(t => (cat === 'Svi' || t.category === cat) && t.name.toLowerCase().includes(query.toLowerCase())), [treatments, cat, query]);
@@ -76,6 +80,7 @@ export default function Desktop() {
   };
   const loadMessages = async b => {
     if (!b?.id || !token) return;
+    setErr(''); setMessages([]);
     setSelected(b);
     setMessages(listOf(await api(`/api/bookings/${b.id}/messages`, { token })));
   };
@@ -99,36 +104,46 @@ export default function Desktop() {
   }, []);
 
   const authenticate = async mode => {
+    if (busy) return;
     setErr(''); setNotice('');
     if (!hasApi) return setErr('Backend API nije povezan. Postavi NEXT_PUBLIC_API_URL na Renderu.');
     if (mode === 'register' && form.password !== form.confirm) return setErr('Lozinke se ne poklapaju.');
     const body = mode === 'register'
       ? { fullName: form.fullName, email: form.email, password: form.password }
       : { email: form.email, password: form.password, remember: form.remember };
+    setBusy(true);
     try {
       const r = await api('/api/auth/' + mode, { method: 'POST', body });
       const authUser = normalizeUser(r.user);
       if (!r.token || !authUser) throw new Error('Backend nije vratio ispravan login odgovor. Proveri da mina-web koristi pravi NEXT_PUBLIC_API_URL i redeployuj mina-api.');
       setToken(r.token); setUser(authUser); setView('home');
       if (form.remember) localStorage.setItem('minaSession', JSON.stringify({ token: r.token, user: authUser }));
+      else localStorage.removeItem('minaSession');
       await reloadBookings(r.token);
       if (authUser.role === 'ADMIN') await reloadAdmin(r.token);
     } catch (e) {
       setErr(e.message);
+    } finally {
+      setBusy(false);
     }
   };
 
   const createBooking = async () => {
+    if (busy) return;
     setErr(''); setNotice('');
     if (!token) return setAuthMode('login');
+    setBusy(true);
     try {
       await api('/api/bookings', { method: 'POST', token, body: { treatmentId: booking.treatment.id, date: booking.date, time: booking.time, note: booking.note } });
       await reloadBookings(token);
       if (user?.role === 'ADMIN') await reloadAdmin(token);
       setNotice('Termin je poslat i sačuvan. Admin ga sada vidi u panelu.');
       setView('my');
+      setConfirmOpen(false);
     } catch (e) {
       setErr(e.message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -159,17 +174,18 @@ export default function Desktop() {
 
   if (!user) {
     return (
-      <div className="auth-shell min-h-screen bg-lav-2 p-6">
+      <div ref={root} className="auth-shell min-h-screen bg-lav-2 p-6">
         <div className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-6xl grid-cols-[1fr_440px] overflow-hidden rounded-3xl bg-paper shadow-soft">
           <section className="hero-photo relative flex flex-col justify-between p-12">
+            <HeroImage />
             <Logo size="text-6xl" />
             <div className="max-w-xl animate-rise">
               <p className="text-xs tracking-[.35em] text-mina">MINA WELLNESS SALON</p>
-              <h1 className="mt-5 font-serif text-7xl leading-none text-mina">Rezerviši negu bez čekanja.</h1>
-              <p className="mt-5 max-w-md text-mina/70">Nalog je potreban da bi svaki termin bio sačuvan u bazi i vidljiv adminu za potvrdu.</p>
+              <h1 className="mt-5 font-serif text-5xl leading-tight text-mina">Tvoje zdravlje.<br />Tvoja lepota.</h1>
+              <p className="mt-5 max-w-xs text-mina/80">Trenutak mira. Nega koja prija. Vreme samo za tebe.</p>
             </div>
             <div className="grid grid-cols-3 gap-3 text-sm text-mina">
-              {['Sigurno zakazivanje', 'Admin potvrda', 'Razgovor o plaćanju'].map(x => <div key={x} className="rounded-2xl bg-white/70 p-4">{x}</div>)}
+              {['Nega lica', 'Masaže', 'Wellness'].map(x => <div key={x} className="border-t border-mina/20 pt-4">{x}</div>)}
             </div>
           </section>
           <section className="flex flex-col justify-center p-10">
@@ -178,7 +194,7 @@ export default function Desktop() {
               <button onClick={() => setAuthMode('login')} className={`rounded-full py-2 font-semibold ${authMode === 'login' ? 'bg-mina text-white' : 'text-mina'}`}>Prijava</button>
             </div>
             <h2 className="font-serif text-4xl text-mina">{authMode === 'register' ? 'Napravi nalog' : 'Prijavite se'}</h2>
-            <p className="mb-6 mt-2 text-sm text-mina/60">Prvo napravi nalog, zatim biraš tretman i termin.</p>
+            <p className="mb-6 mt-2 text-sm text-mina/60">{authMode === 'register' ? 'Tvoj prvi korak do omiljenog rituala nege.' : 'Dobrodošli nazad u svoj kutak mira.'}</p>
             <div className="space-y-3">
               {authMode === 'register' && <input value={form.fullName} onChange={setF('fullName')} className="w-full rounded-2xl border border-lav-2 px-4 py-3 outline-none" placeholder="Ime i prezime" />}
               <input value={form.email} onChange={setF('email')} className="w-full rounded-2xl border border-lav-2 px-4 py-3 outline-none" placeholder="Email adresa" type="email" />
@@ -186,7 +202,7 @@ export default function Desktop() {
               {authMode === 'register' && <input value={form.confirm} onChange={setF('confirm')} className="w-full rounded-2xl border border-lav-2 px-4 py-3 outline-none" placeholder="Potvrdi lozinku" type="password" />}
               {authMode === 'login' && <label className="flex items-center gap-2 text-sm text-mina"><input type="checkbox" checked={form.remember} onChange={setF('remember')} className="accent-mina" /> Zapamti me</label>}
               {err && <p className="text-sm text-red-600">{err}</p>}
-              <Btn className="w-full rounded-full" onClick={() => authenticate(authMode)}>{authMode === 'register' ? 'Napravi nalog' : 'Prijavite se'}</Btn>
+              <Btn disabled={busy} className="w-full rounded-full" onClick={() => authenticate(authMode)}>{busy ? 'Sačekajte...' : authMode === 'register' ? 'Napravi nalog' : 'Prijavite se'}</Btn>
             </div>
           </section>
         </div>
@@ -195,8 +211,8 @@ export default function Desktop() {
   }
 
   return (
-    <div className="grid min-h-screen grid-cols-[260px_1fr_340px] bg-lav-2 p-3">
-      <aside className="flex flex-col rounded-l-3xl bg-gradient-to-b from-lav to-lav-2 p-5">
+    <div ref={root} className="desktop-shell grid min-h-screen grid-cols-[210px_minmax(0,1fr)] bg-lav-2 p-3 xl:grid-cols-[210px_minmax(0,1fr)_280px] 2xl:grid-cols-[230px_minmax(0,1fr)_300px]">
+      <aside className="lavender-sidebar flex flex-col p-5">
         <Logo size="text-5xl" />
         <nav className="mt-8 space-y-1">{nav.map(([k, label, icon]) => (
           <button key={k} onClick={() => setView(k)} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm transition ${view === k ? 'bg-white font-bold text-mina shadow-soft' : 'text-mina/80 hover:bg-white/60'}`}>
@@ -206,7 +222,7 @@ export default function Desktop() {
         <button onClick={() => { localStorage.removeItem('minaSession'); setUser(null); setToken(null); setAuthMode('login'); }} className="mt-auto rounded-xl border border-mina/20 px-4 py-3 text-sm font-semibold text-mina hover:bg-white">Odjavi se</button>
       </aside>
 
-      <main className="bg-paper p-6">
+      <main className="min-w-0 bg-paper p-5">
         <header className="mb-6 flex items-center gap-4">
           <label className="flex flex-1 items-center gap-3 rounded-full bg-white px-5 py-3 shadow-soft"><LineIcon name="search" className="h-4 w-4 text-mina/60" /><input value={query} onChange={e => setQuery(e.target.value)} className="w-full outline-none" placeholder="Pretraži tretmane..." /></label>
           <div className="rounded-full bg-white px-4 py-2 text-sm shadow-soft"><b>{user.fullName}</b><span className="ml-2 text-mina/50">{user.role === 'ADMIN' ? 'Admin' : 'Korisnik'}</span></div>
@@ -216,18 +232,22 @@ export default function Desktop() {
         {err && <p className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700">{err}</p>}
 
         {view === 'home' && <section className="space-y-6 animate-rise">
-          <div className="hero-photo rounded-3xl p-10">
+          <div className="hero-photo p-8">
+            <HeroImage />
             <p className="text-xs tracking-[.3em] text-mina">MINA WELLNESS SALON</p>
-            <h1 className="my-3 font-serif text-6xl leading-[1.05] text-mina">Tvoje zdravlje.<br />Tvoja lepota.</h1>
-            <p className="mb-6 max-w-sm text-mina/80">Izaberi tretman, pošalji zahtev, a admin potvrđuje termin iz panela.</p>
+            <h1 className="my-3 font-serif text-5xl leading-[1.05] text-mina">Tvoje zdravlje.<br />Tvoja lepota.</h1>
+            <p className="mb-6 max-w-[230px] text-sm text-mina/80">Profesionalni tretmani, prirodna nega i potpuna relaksacija.</p>
             <Btn className="inline-flex items-center gap-2 rounded-full" onClick={() => setView('booking')}><LineIcon name="calendar" className="h-4 w-4" />Zakaži termin</Btn>
           </div>
-          <div className="grid grid-cols-4 gap-3">{shownTreatments.filter(t => t.popular).slice(0, 4).map(t => <TreatmentCard key={t.id} t={t} onPick={() => { setBooking({ ...booking, treatment: t }); setView('booking'); }} />)}</div>
+          <div className="grid grid-cols-5 gap-2">{CATEGORIES.slice(1).map(c => <button data-magnetic key={c} onClick={() => { setCat(c); setView('treatments'); }} className="category-tile"><LineIcon name={c === 'Wellness' ? 'spa' : c === 'Masaže' ? 'user' : 'spa'} className="mx-auto mb-2 h-6 w-6" /><span>{c}</span></button>)}</div>
+          <div className="flex items-center justify-between"><h2 className="font-serif text-2xl text-mina">Popularni tretmani</h2><button onClick={() => setView('treatments')} className="text-xs text-mina">Pogledaj sve →</button></div>
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{shownTreatments.filter(t => t.popular).slice(0, 4).map(t => <TreatmentCard key={t.id} t={t} onPick={() => { setBooking({ ...booking, treatment: t }); setView('booking'); }} />)}</div>
+          <section data-reveal className="home-appointments"><div className="flex items-center justify-between"><h2 className="font-serif text-2xl text-mina">Naredni termini</h2><button className="text-xs text-mina" onClick={() => setView('my')}>Pogledaj sve →</button></div>{activeBookings.length ? activeBookings.slice(0, 3).map(b => <button key={b.id} onClick={() => { loadMessages(b).catch(e => setErr(e.message)); setView('my'); }} className="flex w-full items-center gap-3 border-b border-lav-2 py-3 text-left"><Thumb tone={b.tone} /><span className="min-w-0 flex-1 text-sm"><b className="block">{b.treatmentName}</b><span className="text-xs text-mina/60">{b.when}</span></span><Badge s={b.statusLabel} /></button>) : <p className="py-5 text-sm text-mina/60">Tvoj sledeći trenutak opuštanja čeka na tebe.</p>}<Btn className="mt-3 inline-flex items-center gap-2 text-sm" onClick={() => setView('booking')}><LineIcon name="plus" className="h-4 w-4" />Novi termin</Btn></section>
         </section>}
 
         {view === 'treatments' && <section className="animate-rise">
           <div className="mb-4 flex gap-2">{CATEGORIES.map(c => <button key={c} onClick={() => setCat(c)} className={`rounded-full px-4 py-2 text-sm ${cat === c ? 'bg-mina text-white' : 'bg-white text-mina shadow-soft'}`}>{c}</button>)}</div>
-          <div className="grid grid-cols-4 gap-3">{shownTreatments.map(t => <TreatmentCard key={t.id} t={t} onPick={() => { setBooking({ ...booking, treatment: t }); setView('booking'); }} />)}</div>
+          <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{shownTreatments.map(t => <TreatmentCard key={t.id} t={t} onPick={() => { setBooking({ ...booking, treatment: t }); setView('booking'); }} />)}</div>
         </section>}
 
         {view === 'booking' && <section className="grid grid-cols-[1fr_1fr] gap-5 animate-rise">
@@ -243,18 +263,19 @@ export default function Desktop() {
             <label className="mt-4 block text-sm font-semibold text-mina">Vreme</label>
             <div className="mt-2 grid grid-cols-3 gap-2">{SLOTS.map(t => <button key={t} onClick={() => setBooking({ ...booking, time: t })} className={`rounded-full border py-2 text-sm ${booking.time === t ? 'border-mina bg-mina text-white' : 'border-lav-2'}`}>{t}</button>)}</div>
             <textarea value={booking.note} onChange={e => setBooking({ ...booking, note: e.target.value })} className="mt-4 h-28 w-full rounded-2xl border border-lav-2 p-3 outline-none" placeholder="Napomena za admina, pitanje za plaćanje ili poseban zahtev..." />
-            <Btn className="mt-4 w-full rounded-full" onClick={createBooking}>Pošalji zahtev za termin</Btn>
+            <Btn className="mt-4 w-full rounded-full" onClick={() => { setErr(''); setConfirmOpen(true); }}>Proveri i potvrdi termin</Btn>
           </div>
         </section>}
 
-        {view === 'my' && <BookingList title="Moji termini" items={activeBookings.concat(history)} onOpen={loadMessages} />}
+        {view === 'my' && <BookingList title="Moji termini" items={activeBookings.concat(history)} onOpen={b => loadMessages(b).catch(e => setErr(e.message))} />}
 
         {view === 'profile' && <section className="rounded-2xl bg-white p-6 shadow-soft animate-rise"><h2 className="font-serif text-3xl text-mina">Moj nalog</h2><p className="mt-2">{user.fullName}</p><p className="text-mina/60">{user.email}</p><p className="mt-4 text-sm text-mina/70">Svi termini poslati preko ovog naloga čuvaju se u bazi i vidljivi su adminu.</p></section>}
 
-        {view === 'admin' && <AdminPanel admin={admin} adminForm={adminForm} setAF={setAF} createAdmin={createAdmin} updateStatus={updateStatus} loadMessages={loadMessages} />}
+        {view === 'admin' && <AdminPanel admin={admin} adminForm={adminForm} setAF={setAF} createAdmin={createAdmin} updateStatus={(...args) => updateStatus(...args).catch(e => setErr(e.message))} loadMessages={b => loadMessages(b).catch(e => setErr(e.message))} />}
       </main>
 
-      <aside className="space-y-4 rounded-r-3xl border-l border-lav-2 bg-paper p-5">
+      <aside className="hidden space-y-4 border-l border-lav-2 bg-paper p-4 xl:block">
+        <div className="lavender-offer"><p className="text-xs text-mina/70">Posebna ponuda</p><h3 className="my-2 font-serif text-2xl text-mina">Relax & Glow</h3><p className="mb-4 max-w-[150px] text-xs text-mina/70">Tvoj ritual za blistavu kožu i odmorno telo.</p><Btn className="!px-4 !py-2 text-xs" onClick={() => { setCat('Wellness'); setView('treatments'); }}>Pogledaj tretmane</Btn></div>
         <div className="rounded-2xl bg-white p-4 shadow-soft">
           <h3 className="font-serif text-2xl text-mina">Razgovor</h3>
           {!selected ? <p className="mt-3 text-sm text-mina/60">Izaberi termin da vidiš poruke o zakazivanju i plaćanju.</p> : <>
@@ -263,18 +284,20 @@ export default function Desktop() {
               {messages.length ? messages.map(m => <div key={m.id} className={`rounded-2xl p-3 text-sm ${m.sender?.role === 'ADMIN' ? 'bg-mina text-white' : 'bg-lav text-mina'}`}><b className="block text-xs opacity-70">{m.sender?.fullName || 'Korisnik'}</b>{m.body}</div>) : <p className="text-sm text-mina/50">Još nema poruka.</p>}
             </div>
             <textarea value={message} onChange={e => setMessage(e.target.value)} className="mt-3 h-24 w-full rounded-2xl border border-lav-2 p-3 text-sm outline-none" placeholder="Napiši poruku..." />
-            <Btn className="mt-2 w-full !py-2 text-sm" onClick={sendMessage}>Pošalji poruku</Btn>
+            <Btn className="mt-2 w-full !py-2 text-sm" onClick={() => sendMessage().catch(e => setErr(e.message))}>Pošalji poruku</Btn>
           </>}
         </div>
         <h3 className="font-serif text-2xl text-mina">Najčešća pitanja</h3>
         <Faq items={FAQ} />
       </aside>
+      <Modal open={confirmOpen} onClose={() => !busy && setConfirmOpen(false)} title="Potvrdi svoj termin"><div className="mb-5 flex gap-3"><Thumb tone={booking.treatment.tone} /><div><b>{booking.treatment.name}</b><p className="text-sm text-mina/60">{fmt(booking.treatment.priceRsd)} · {booking.treatment.durationMin} min</p></div></div><p className="mb-2 text-sm">{booking.date} · {booking.time}</p><p className="mb-5 text-sm text-mina/70">Nakon potvrde termina možeš poslati poruku salonu.</p>{err && <p role="alert" className="mb-3 text-sm text-red-600">{err}</p>}<Btn disabled={busy} className="w-full" onClick={createBooking}>{busy ? 'Slanje...' : 'Potvrdi zakazivanje'}</Btn></Modal>
+      <Modal open={Boolean(selected)} onClose={() => setSelected(null)} title="Razgovor sa salonom"><p className="mb-4 text-sm text-mina/60">{selected?.treatmentName}</p><div className="max-h-64 space-y-2 overflow-y-auto">{messages.map(m => <div key={m.id} className={`rounded-lg p-3 text-sm ${m.sender?.role === 'ADMIN' ? 'bg-lav text-mina' : 'bg-gray-50'}`}><b className="block text-xs">{m.sender?.fullName}</b>{m.body}</div>)}</div><textarea aria-label="Poruka salonu" value={message} onChange={e => setMessage(e.target.value)} className="my-4 h-24 w-full rounded-lg border border-lav-2 p-3" placeholder="Napiši poruku..." />{err && <p role="alert" className="mb-3 text-sm text-red-600">{err}</p>}<Btn className="w-full" onClick={() => sendMessage().catch(e => setErr(e.message))}>Pošalji poruku</Btn></Modal>
     </div>
   );
 }
 
 function TreatmentCard({ t, onPick }) {
-  return <button onClick={onPick} className="group rounded-2xl bg-white p-3 text-left shadow-soft transition duration-300 hover:-translate-y-1 hover:shadow-lg">
+  return <button data-reveal data-tilt onClick={onPick} className="treatment-card group rounded-lg bg-white p-2 text-left shadow-soft hover:shadow-lg">
     <Thumb tone={t.tone} className="h-28 w-full" />
     <b className="mt-3 block">{t.name}</b>
     <p className="text-xs text-mina/60">{fmt(t.priceRsd)} · {t.durationMin} min</p>
@@ -299,7 +322,7 @@ function AdminPanel({ admin, adminForm, setAF, createAdmin, updateStatus, loadMe
       ['Tretmani', admin.counts?.treatments || 0],
     ].map(([label, value]) => <div key={label} className="rounded-2xl bg-white p-4 shadow-soft"><b className="block text-3xl text-mina">{value}</b><span className="text-sm text-mina/60">{label}</span></div>)}</div>
 
-    <div className="grid grid-cols-[1fr_330px] gap-5">
+    <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_280px]">
       <div className="rounded-2xl bg-white p-5 shadow-soft">
         <h2 className="mb-4 font-serif text-3xl text-mina">Zakazani termini</h2>
         <div className="space-y-3">{listOf(admin.bookings).map(b => <div key={b.id} className="rounded-2xl border border-lav-2 p-4">

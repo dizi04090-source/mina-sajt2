@@ -1,8 +1,11 @@
-@tailwind base; @tailwind components; @tailwind utilities;
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Nunito+Sans:wght@400;600;700&display=swap');
+@tailwind base; @tailwind components; @tailwind utilities;
 body { @apply bg-paper text-[#2d2236] font-sans; }
 button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #6B4E91; outline-offset: 2px; }
-button { transition-property: color, background-color, border-color, transform, box-shadow, opacity; transition-duration: 180ms; }
+button { transition-property: color, background-color, border-color, box-shadow, opacity; transition-duration: 180ms; touch-action: manipulation; }
+* { letter-spacing: 0 !important; }
+input, textarea, select { min-width: 0; }
+button, h1, h2, h3, p { overflow-wrap: anywhere; }
 .treatment-lice { background: linear-gradient(135deg, #f4d8d5 0%, #efe3f5 52%, #c7b1dc 100%); }
 .treatment-masaze { background: linear-gradient(135deg, #d8c0b4 0%, #f1dfd8 50%, #eadff3 100%); }
 .treatment-telo { background: linear-gradient(135deg, #e8d6c8 0%, #f5e9e0 48%, #d8cbea 100%); }
@@ -17,11 +20,41 @@ button { transition-property: color, background-color, border-color, transform, 
 .hero-photo {
   position: relative;
   overflow: hidden;
-  background:
-    linear-gradient(90deg, rgba(250,248,252,.96) 0%, rgba(250,248,252,.9) 33%, rgba(250,248,252,.2) 62%),
-    url('/images/hero-wellness.png') center / cover no-repeat;
+  border-radius: 8px;
+  background: #eee8f2;
+  isolation: isolate;
 }
 .hero-photo > * { position: relative; z-index: 1; }
+.hero-photo > .hero-image { position: absolute; inset: -6% 0; z-index: -2; width: 100%; height: 112%; object-fit: cover; object-position: center; }
+.hero-photo::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(246,241,250,.92), rgba(246,241,250,.65) 38%, transparent 70%); pointer-events: none; }
+.lavender-sidebar { position: relative; isolation: isolate; background: #eeeaf7; }
+.lavender-sidebar::before { content: ''; position: absolute; z-index: -1; inset: 45% 0 0; background: url('/images/lavender-texture.webp') left bottom / cover no-repeat; mask-image: linear-gradient(transparent, black 40%); pointer-events: none; }
+.lavender-sidebar > button { background: rgba(255,255,255,.85); }
+.lavender-sidebar nav, .lavender-sidebar > button { position: relative; z-index: 1; }
+.lavender-offer { padding: 20px; border-radius: 8px; background: linear-gradient(90deg, #f2eef9 5%, #f2eef9ee 60%, #f2eef980), url('/images/lavender-texture.webp') right 72% / cover; }
+.category-tile { min-height: 88px; border-radius: 8px; padding: 14px 6px; background: #f2eff8; color: #5e3b76; font-size: 12px; }
+.treatment-card { min-width: 0; transform-style: preserve-3d; perspective: 900px; }
+.treatment-card b, .treatment-card > span { transform: translateZ(10px); }
+.home-appointments { border-top: 1px solid #e8e1ef; padding-top: 20px; }
+.desktop-shell main > section { animation: none; }
+.desktop-shell [class*='rounded-2xl']:not(button):not(input):not(textarea) { border-radius: 8px; }
+.desktop-shell aside, .desktop-shell main { min-width: 0; }
+.desktop-shell main header { flex-wrap: wrap; }
+.desktop-shell main header label { min-width: 180px; }
+.mobile-hero { min-height: 200px; }
+.mobile-hero h2 { max-width: 190px; }
+.mobile-auth { background: #faf8fc url('/images/lavender-texture.webp') center bottom / 100% auto no-repeat; }
+.mobile-auth main { background: rgba(250,248,252,.85); }
+.mobile-shell main > div, .mobile-shell main > section { min-width: 0; }
+.modal-overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(36,27,43,.4); backdrop-filter: blur(6px); }
+.modal-dialog { width: min(100%, 480px); max-height: calc(100dvh - 40px); overflow-y: auto; border-radius: 8px; background: #fdfbff; padding: 24px; box-shadow: 0 24px 80px #241b2b30; }
+@media (max-width: 1279px) {
+  .desktop-shell main > section.grid { grid-template-columns: minmax(0,1fr); }
+}
+@media (max-width: 480px) {
+  .modal-overlay { padding: 12px; }
+  .modal-dialog { padding: 20px; max-height: calc(100dvh - 24px); }
+}
 .auth-shell {
   background:
     linear-gradient(120deg, rgba(234,229,243,.92), rgba(250,248,252,.96)),

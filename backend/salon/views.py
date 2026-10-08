@@ -49,7 +49,11 @@ def login(request):
     email = (request.data.get("email") or "").strip().lower()
     password = request.data.get("password") or ""
     remember = bool(request.data.get("remember"))
-    user = authenticate(username=email, password=password)
+    try:
+        account = User.objects.get(email__iexact=email)
+    except (User.DoesNotExist, User.MultipleObjectsReturned):
+        account = None
+    user = authenticate(username=account.username, password=password) if account else None
     if not user:
         return Response({"error": "Pogrešan email ili lozinka"}, status=401)
     return Response({"token": make_token(user, remember), "user": public_user(user)})

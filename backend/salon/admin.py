@@ -8,6 +8,9 @@ class MinaUserAdmin(UserAdmin):
     list_filter = ("role", "is_staff", "is_active")
     search_fields = ("email", "full_name", "username")
     fieldsets = UserAdmin.fieldsets + (("MINA", {"fields": ("full_name", "role", "wallet_rsd")}),)
+    add_fieldsets = UserAdmin.add_fieldsets + (
+        ("MINA", {"fields": ("email", "full_name", "role", "is_staff")}),
+    )
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
