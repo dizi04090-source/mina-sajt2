@@ -55,7 +55,7 @@ class Booking(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="bookings")
     treatment = models.ForeignKey(Treatment, on_delete=models.PROTECT, related_name="bookings")
     starts_at = models.DateTimeField()
-    location = models.CharField(max_length=180, default="Mina Wellness Salon, Bulevar Oslobođenja 123, Novi Sad")
+    location = models.CharField(max_length=180, default="Mina Wellness Salon, Braće Radić 57, Subotica")
     note = models.TextField(blank=True)
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -91,3 +91,19 @@ class Notification(models.Model):
 
     def __str__(self):
         return self.title
+
+class Conversation(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="salon_conversation")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+
+class ContactMessage(models.Model):
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name="messages")
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    body = models.TextField(max_length=1000)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]

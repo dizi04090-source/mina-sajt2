@@ -2,6 +2,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("conversations/my", views.my_conversation),
+    path("conversations/<int:pk>/messages", views.conversation_messages),
+    path("admin/conversations", views.admin_conversations),
     path("auth/register", views.register),
     path("auth/login", views.login),
     path("users/profile", views.profile),

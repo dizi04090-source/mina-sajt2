@@ -7,7 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User, Category, Treatment, Booking, BookingMessage, Notification
+from .models import User, Category, Treatment, Booking, BookingMessage, Notification, Conversation, ContactMessage
 from .serializers import public_user, TreatmentSerializer, BookingSerializer, MessageSerializer, UserPublicSerializer
 
 def make_token(user, remember=False):
@@ -207,3 +207,44 @@ def admin_booking_status(request, pk):
     title = {"CONFIRMED": "Termin je potvrđen", "CANCELLED": "Termin je otkazan", "COMPLETED": "Termin je završen"}.get(status_value, "Status termina je promenjen")
     Notification.objects.create(user=booking.user, title=title, body=f"{booking.treatment.name}: {title.lower()}.")
     return Response(BookingSerializer(booking).data)
+
+def contact_message_data(message):
+    return {"id": message.pk, "body": message.body, "sender": public_user(message.sender), "createdAt": message.created_at.isoformat()}
+
+@api_view(["GET", "POST"])
+def my_conversation(request):
+    if request.method == "GET":
+        conversation = Conversation.objects.filter(user=request.user).first()
+        return Response({"id": conversation.pk if conversation else None, "messages": [contact_message_data(m) for m in conversation.messages.select_related("sender")] if conversation else []})
+    body = request.data.get("body")
+    if not isinstance(body, str) or not body.strip() or len(body.strip()) > 1000:
+        return Response({"error": "Unesite poruku od 1 do 1000 znakova"}, status=400)
+    conversation, _ = Conversation.objects.get_or_create(user=request.user)
+    message = ContactMessage.objects.create(conversation=conversation, sender=request.user, body=body.strip())
+    conversation.save(update_fields=["updated_at"])
+    return Response(contact_message_data(message), status=201)
+
+@api_view(["GET"])
+@admin_required
+def admin_conversations(request):
+    conversations = Conversation.objects.select_related("user").prefetch_related("messages").all()
+    return Response([{"id": c.pk, "user": public_user(c.user), "updatedAt": c.updated_at.isoformat(), "lastMessage": list(c.messages.all())[-1].body if c.messages.all() else ""} for c in conversations])
+
+@api_view(["GET", "POST"])
+def conversation_messages(request, pk):
+    try:
+        conversation = Conversation.objects.select_related("user").get(pk=pk)
+    except Conversation.DoesNotExist:
+        return Response({"error": "Razgovor nije pronađen"}, status=404)
+    if conversation.user_id != request.user.pk and not is_admin(request.user):
+        return Response({"error": "Nemate pristup ovom razgovoru"}, status=403)
+    if request.method == "GET":
+        return Response([contact_message_data(m) for m in conversation.messages.select_related("sender")])
+    body = request.data.get("body")
+    if not isinstance(body, str) or not body.strip() or len(body.strip()) > 1000:
+        return Response({"error": "Unesite poruku od 1 do 1000 znakova"}, status=400)
+    message = ContactMessage.objects.create(conversation=conversation, sender=request.user, body=body.strip())
+    conversation.save(update_fields=["updated_at"])
+    if is_admin(request.user):
+        Notification.objects.create(user=conversation.user, title="Nova poruka iz salona", body=body.strip())
+    return Response(contact_message_data(message), status=201)

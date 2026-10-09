@@ -1,4 +1,4 @@
-export const SALON = 'Mina Wellness Salon, Bulevar Oslobođenja 123, Novi Sad';
+export const SALON = 'Mina Wellness Salon, Braće Radić 57, Subotica';
 export const USER = { fullName: 'Ana Petrović', email: 'ana.petrovic@email.com', walletRsd: 0 };
 export const CATEGORIES = ['Svi', 'Lice', 'Telo', 'Masaže', 'Depilacija', 'Wellness'];
 export const TREATMENTS = [

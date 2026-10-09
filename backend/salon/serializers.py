@@ -4,9 +4,10 @@ from .models import User, Category, Treatment, Booking, BookingMessage, Notifica
 def public_user(user):
     return {
         "id": str(user.id),
-        "fullName": user.full_name or user.get_full_name() or user.email,
+        "fullName": user.full_name or user.get_full_name() or user.username,
+        "username": user.username,
         "email": user.email,
-        "role": user.role,
+        "role": "ADMIN" if user.is_admin_role else "USER",
         "walletRsd": user.wallet_rsd,
     }
 

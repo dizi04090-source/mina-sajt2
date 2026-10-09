@@ -5,7 +5,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import Booking, BookingMessage, Category, Notification, Treatment, User
+from .models import Booking, BookingMessage, Category, Notification, Treatment, User, Conversation, ContactMessage
 
 
 @override_settings(STORAGES={
@@ -88,3 +88,50 @@ class AdminFormsTests(TestCase):
         self.assertEqual(booking.status, Booking.Status.CONFIRMED)
         client.force_authenticate(customer)
         self.assertEqual(len(client.get(f"/api/bookings/{booking.pk}/messages").data), 2)
+
+class SalonConversationTests(TestCase):
+    def setUp(self):
+        self.customer = User.objects.create_user(username="customer", email="customer@example.com")
+        self.stranger = User.objects.create_user(username="stranger", email="stranger@example.com")
+        self.admin = User.objects.create_superuser(username="mina", email="mina@example.com", password="Test-password-936")
+        self.client = APIClient()
+
+    def test_public_catalog_and_protected_actions(self):
+        self.assertEqual(self.client.get('/api/treatments').status_code, 200)
+        for method, path in [('get', '/api/conversations/my'), ('post', '/api/conversations/my'), ('get', '/api/admin/conversations'), ('post', '/api/bookings')]:
+            with self.subTest(path=path):
+                self.assertEqual(getattr(self.client, method)(path).status_code, 401)
+
+    def test_question_before_booking_admin_reply_and_privacy(self):
+        self.client.force_authenticate(self.customer)
+        self.assertEqual(self.client.get('/api/conversations/my').data, {'id': None, 'messages': []})
+        self.assertEqual(Conversation.objects.count(), 0)
+        self.assertEqual(self.client.post('/api/conversations/my', {'body': 'Koju masažu preporučujete?'}, format='json').status_code, 201)
+        conversation = Conversation.objects.get(user=self.customer)
+        path = f'/api/conversations/{conversation.pk}/messages'
+        self.assertEqual(Booking.objects.count(), 0)
+        self.assertEqual(self.client.get('/api/admin/conversations').status_code, 403)
+        self.client.force_authenticate(self.stranger)
+        self.assertEqual(self.client.get(path).status_code, 403)
+        self.assertEqual(self.client.post(path, {'body': 'Private'}, format='json').status_code, 403)
+        self.client.force_authenticate(self.admin)
+        overview = self.client.get('/api/admin/conversations')
+        self.assertEqual(overview.status_code, 200)
+        self.assertEqual(overview.data[0]['lastMessage'], 'Koju masažu preporučujete?')
+        self.assertEqual(self.client.post(path, {'body': 'Možemo zajedno izabrati tretman.'}, format='json').status_code, 201)
+        self.client.force_authenticate(self.customer)
+        self.assertEqual(len(self.client.get('/api/conversations/my').data['messages']), 2)
+        self.assertTrue(Notification.objects.filter(user=self.customer, title='Nova poruka iz salona').exists())
+
+    def test_empty_and_oversized_messages_are_rejected(self):
+        self.client.force_authenticate(self.customer)
+        for body in ['', '  ', 'a' * 1001, 12]:
+            self.assertEqual(self.client.post('/api/conversations/my', {'body': body}, format='json').status_code, 400)
+        self.assertEqual(ContactMessage.objects.count(), 0)
+
+    def test_superuser_profile_has_admin_role_and_username(self):
+        self.client.force_authenticate(self.admin)
+        response = self.client.get('/api/users/profile')
+        self.assertEqual(response.data['role'], 'ADMIN')
+        self.assertEqual(response.data['username'], 'mina')
+        self.assertEqual(response.data['fullName'], 'mina')
