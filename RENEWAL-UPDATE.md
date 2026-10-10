@@ -6,7 +6,7 @@ retained through sign-in and registration.
 
 The redesign uses the supplied salon photographs and portrait, the existing
 Mina icon, a three-column desktop treatment grid, generous spacing and gentle
-CSS entrance animations. Reduced-motion preferences are respected.
+CSS entrance animations. Motion can be switched off with the footer control.
 
 The visual design uses the supplied six-color purple palette: #42326E,
 #6E5B9A, #B29CE4, #B2A6CE, #D7C8ED and #E0D4FC. The header is deep purple,
@@ -16,8 +16,7 @@ navigation, and Instrument Serif for the hero and short caption. The fonts are
 served locally with their open-source licenses and Latin/Latin Extended subsets.
 Scroll graphics use a single passive listener with frame scheduling and cleanup.
 Buttons, links, filters, inputs, menus, messages and dialogs include coordinated
-hover, focus, press or entrance transitions. Device reduced-motion preferences
-are respected, including when that setting changes while the site is open.
+hover, focus, press or entrance transitions. Full motion is the default, with a persistent quiet-mode control in the footer.
 
 Clients can message Mina before booking. Administrators have a client inbox,
 appointment approval controls and separate conversations for each appointment.
@@ -51,3 +50,12 @@ registration, retained treatment selection, booking, approval, both message
 flows, personalized admin greeting and logout.
 Browser layout checks at 320, 390, 1024 and 1440 pixels found no horizontal
 overflow; the supplied website images loaded correctly.
+
+
+## Full-section portrait and interaction refinement
+
+The introduction uses Mina’s portrait edge to edge with a lavender readability overlay.
+The purple header and panels have fine line and halftone textures. The brand mark is a local SVG; interface icons also render as SVG.
+Buttons grow, turn off-white, follow the mouse slightly and pulse on clicks.
+Cards, section frames and category controls reveal with a staggered upward scale transition.
+Dialogs scale into view. The footer animation switch also disables dialog and pointer motion.

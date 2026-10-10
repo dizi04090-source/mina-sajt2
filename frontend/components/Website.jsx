@@ -5,13 +5,13 @@ import { api, hasApi } from '../lib/api';
 import { TREATMENTS, CATEGORIES, SLOTS, fmt } from '../lib/mock';
 import { Modal } from './Dialog';
 import { Badge } from './ui';
-import { MotionBloom, useSalonScroll } from './SalonMotion';
+import { MotionBloom, useSalonScroll, useButtonMotion } from './SalonMotion';
 
 const STATUS = { PENDING: 'Na čekanju', CONFIRMED: 'Potvrđeno', COMPLETED: 'Završeno', CANCELLED: 'Otkazano' };
 const images = { Lice: '/images/facial-treatment-v2.webp', Telo: '/images/body-treatment.webp', 'Masaže': '/images/massage-treatment-v2.webp', Depilacija: '/images/depilation-treatment.webp', Wellness: '/images/salon-room.webp' };
 const day = (offset = 0) => { const d = new Date(); d.setDate(d.getDate() + offset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const dateLabel = value => new Date(value).toLocaleString('sr-Latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Belgrade' });
-function Brand() { return <a className="brand" href="#home" aria-label="Mina Wellness Salon — početna"><img src="/mina-icon.png" alt="" /><span>MINA<small>WELLNESS SALON</small></span></a>; }
+function Brand() { return <a className="brand" href="#home" aria-label="Mina Wellness Salon — početna"><img src="/mina-mark.svg" alt="" /><span>MINA<small>WELLNESS SALON</small></span></a>; }
 
 export default function Website() {
   const [session, setSession] = useState(null);
@@ -20,6 +20,9 @@ export default function Website() {
   const [catalogReady, setCatalogReady] = useState(false);
   const [category, setCategory] = useState('Svi');
   const [menu, setMenu] = useState(false);
+  const [motionEnabled, setMotionEnabled] = useState(true);
+  useEffect(() => { setMotionEnabled(localStorage.getItem('minaMotion') !== 'quiet'); }, []);
+  const toggleMotion = () => { const next = !motionEnabled; setMotionEnabled(next); localStorage.setItem('minaMotion', next ? 'full' : 'quiet');  };
   const [modal, setModal] = useState(null);
   const [authMode, setAuthMode] = useState('login');
   const [afterAuth, setAfterAuth] = useState('account');
@@ -43,7 +46,9 @@ export default function Website() {
   const user = session?.user;
   const isAdmin = user?.role === 'ADMIN';
   const selectedTreatment = treatments.find(t => String(t.id) === String(booking.treatmentId));
-  useSalonScroll(root);
+  useEffect(() => { document.documentElement.style.scrollBehavior = motionEnabled ? '' : 'auto'; return () => { document.documentElement.style.scrollBehavior = ''; }; }, [motionEnabled]);
+  useSalonScroll(root, motionEnabled);
+  useButtonMotion(motionEnabled);
 
   const reloadCatalog = async () => {
     if (!hasApi) throw new Error('Povezivanje sa salonom trenutno nije dostupno. Pokušajte kasnije.');
@@ -69,13 +74,13 @@ export default function Website() {
   useEffect(() => {
     const elements = root.current?.querySelectorAll('[data-reveal]');
     if (!elements) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !window.IntersectionObserver) { elements.forEach(e => e.classList.add('is-visible')); return; }
+    if (!motionEnabled || !window.IntersectionObserver) { elements.forEach(e => e.classList.add('is-visible')); return; }
     const observer = new IntersectionObserver(entries => entries.forEach(entry => {
       if (entry.isIntersecting) { entry.target.classList.add('is-visible'); observer.unobserve(entry.target); }
     }), { rootMargin: '0px 0px -17% 0px', threshold: 0 });
     elements.forEach(e => observer.observe(e));
     return () => observer.disconnect();
-  }, [category, treatments]);
+  }, [category, treatments, motionEnabled]);
 
   const run = async action => {
     if (lock.current) return;
@@ -161,7 +166,7 @@ export default function Website() {
   const logout = () => { close(); setSession(null); setBookings([]); setInbox([]); setOverview(null); localStorage.removeItem('minaSession'); sessionStorage.removeItem('minaSession'); setNotice('Uspešno ste se odjavili.'); };
   const field = key => event => setForm(f => ({ ...f, [key]: event.target.type === 'checkbox' ? event.target.checked : event.target.value }));
 
-  return <div className="mina-site" ref={root}>
+  return <div className="mina-site" ref={root} data-motion={motionEnabled ? 'full' : 'quiet'}>
     <header className="site-header"><div className="site-container header-inner"><Brand />
       <nav className={menu ? 'main-nav open' : 'main-nav'} aria-label="Glavna navigacija">
         {[['#treatments', 'Tretmani'], ['#about', 'O salonu'], ['#contact', 'Kontakt']].map(([href, label]) => <a key={href} href={href} onClick={() => setMenu(false)}>{label}</a>)}
@@ -172,16 +177,16 @@ export default function Website() {
     </div><div className="scroll-progress" aria-hidden="true" /></header>
     {notice && <div className="site-container"><div className="site-notice" role="status">{notice}<button aria-label="Zatvori obaveštenje" onClick={() => setNotice('')}><X size={16} /></button></div></div>}
     <main>
-      <section id="home" className="landing-hero"><MotionBloom className="hero-bloom" /><div className="site-container hero-layout">
+      <section id="home" className="landing-hero"><img className="hero-backdrop" src="/images/mina-portrait.webp" alt="Mina u svom salonu" fetchPriority="high" /><MotionBloom className="hero-bloom" /><div className="site-container hero-layout">
         <div className="hero-copy"><p className="eyebrow hero-enter">MINA WELLNESS · SUBOTICA</p><h1 className="hero-enter">Vreme za mir.<br />Vreme za <em>sebe.</em></h1><p className="hero-enter hero-description">Prepusti se nezi, pronađi svoj balans i uživaj u malim ritualima koji čine veliku razliku.</p>
           <div className="hero-actions hero-enter"><button className="primary" disabled={!ready} onClick={() => startBooking()}>Zakaži svoj trenutak <ArrowRight size={17} /></button><a href="#treatments" className="text-link">Istraži tretmane</a></div>
           <div className="hero-location hero-enter"><MapPin size={15} /> Braće Radić 57, Subotica</div>
         </div>
-        <div className="hero-visual"><img src="/images/mina-portrait.webp" alt="Portret iz Mina Wellness salona" fetchPriority="high" /><div className="hero-caption"><span>Nega sa pažnjom.</span><small>MINA WELLNESS SALON</small></div></div>
+        <div className="hero-visual"><div className="hero-caption"><span>Nega sa pažnjom.</span><small>MINA WELLNESS SALON</small></div></div>
       </div></section>
       <div className="ritual-strip"><span>Pažnja u svakom detalju</span><span>Nega po tvojoj meri</span><span>Tvoj trenutak mira</span></div>
       <section id="treatments" className="site-section site-container"><div className="section-heading" data-reveal><div><p className="eyebrow">NAŠI RITUALI</p><h2>Nega koja ti <em>prija.</em></h2></div><p>Od opuštajuće masaže do nege lica i tela.<br />Pronađi tretman za svoj ritam.</p></div>
-        <div className="category-list" aria-label="Kategorije tretmana">{CATEGORIES.map(c => <button aria-pressed={category === c} key={c} onClick={() => setCategory(c)} className={category === c ? 'active' : ''}>{c}</button>)}</div>
+        <div className="category-list" data-reveal aria-label="Kategorije tretmana">{CATEGORIES.map(c => <button aria-pressed={category === c} key={c} onClick={() => setCategory(c)} className={category === c ? 'active' : ''}>{c}</button>)}</div>
         <div className="service-grid">{treatments.filter(t => category === 'Svi' || t.category === category).map((t, i) => <article className="service-card" key={t.id} data-reveal style={{ '--reveal-delay': `${(i % 3) * 75}ms` }}>
           <div className="service-image"><img src={images[t.category] || images.Wellness} alt={t.name} loading="lazy" />{t.popular && <span>Omiljeni ritual</span>}</div><div className="service-content"><small>{t.category} · {t.durationMin} min</small><h3>{t.name}</h3><div className="service-bottom"><span>{fmt(t.priceRsd)}</span><button disabled={!ready} onClick={() => startBooking(t)} aria-label={`Zakaži ${t.name}`}>Zakaži <ArrowRight size={16} /></button></div></div>
         </article>)}</div>
@@ -191,9 +196,9 @@ export default function Website() {
       <section className="site-section site-container gallery-section"><div className="section-heading" data-reveal><div><p className="eyebrow">PROSTOR ZA OPUŠTANJE</p><h2>Oseti atmosferu <em>salona.</em></h2></div></div><div className="salon-gallery"><img data-reveal src="/images/salon-atmosphere.webp" alt="Toplo osvetljen prostor za masažu" loading="lazy" /><img data-reveal src="/images/salon-details.webp" alt="Detalji prostora i priprema za tretman" loading="lazy" /></div></section>
       <section id="contact" className="contact-section"><MotionBloom className="contact-bloom" /><div className="site-container contact-layout" data-reveal><div><p className="eyebrow">TU SMO ZA TEBE</p><h2>Tvoj sledeći trenutak <em>mira.</em></h2><p><MapPin size={18} /> Braće Radić 57, 24000 Subotica</p><a className="text-link" href="https://www.google.com/maps/search/?api=1&query=Bra%C4%87e+Radi%C4%87+57+Subotica" target="_blank" rel="noreferrer">Pronađi salon <ArrowRight size={16} /></a></div><div className="contact-actions"><button className="primary" disabled={!ready} onClick={() => startBooking()}><CalendarDays size={18} /> Zakaži termin</button><button className="secondary" disabled={!ready} onClick={() => enter('contact')}><MessageSquare size={18} /> Piši Mini</button><small>Za zakazivanje i poruke potrebna je prijava.</small></div></div></section>
     </main>
-    <footer className="site-container site-footer"><Brand /><p>© {new Date().getFullYear()} Mina Wellness Salon</p><a href="#home">Na vrh <ArrowRight size={14} /></a></footer>
+    <footer className="site-container site-footer"><Brand /><p>© {new Date().getFullYear()} Mina Wellness Salon</p><button className="motion-toggle" aria-pressed={motionEnabled} onClick={toggleMotion}>Animacije: {motionEnabled ? 'uključene' : 'isključene'}</button><a href="#home">Na vrh <ArrowRight size={14} /></a></footer>
 
-    <Modal open={Boolean(modal)} onClose={close} title={modal === 'auth' ? authMode === 'login' ? 'Dobrodošla nazad.' : 'Tvoj nalog za negu.' : modal === 'booking' ? 'Zakaži svoj trenutak.' : modal === 'contact' ? 'Razgovor sa Minom' : isAdmin ? `Zdravo, ${user?.fullName || user?.username}!` : 'Moj nalog'}>
+    <Modal reduced={!motionEnabled} open={Boolean(modal)} onClose={close} title={modal === 'auth' ? authMode === 'login' ? 'Dobrodošla nazad.' : 'Tvoj nalog za negu.' : modal === 'booking' ? 'Zakaži svoj trenutak.' : modal === 'contact' ? 'Razgovor sa Minom' : isAdmin ? `Zdravo, ${user?.fullName || user?.username}!` : 'Moj nalog'}>
       {notice && modal === 'account' && <p className="dialog-intro" role="status">{notice}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       {modal === 'auth' && <><p className="dialog-intro">{afterAuth === 'booking' ? 'Prijavi se da nastaviš zakazivanje. Tvoj izbor tretmana ostaje sačuvan.' : afterAuth === 'contact' ? 'Prijavi se da pošalješ Mini poruku.' : 'Prijavi se da vidiš svoje termine i poruke.'}</p><div className="dialog-tabs"><button className={authMode === 'login' ? 'active' : ''} onClick={() => { setAuthMode('login'); setError(''); }}>Prijava</button><button className={authMode === 'register' ? 'active' : ''} onClick={() => { setAuthMode('register'); setError(''); }}>Napravi nalog</button></div><form className="site-form" onSubmit={authenticate}>
