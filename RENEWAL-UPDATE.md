@@ -8,6 +8,17 @@ The redesign uses the supplied salon photographs and portrait, the existing
 Mina icon, a three-column desktop treatment grid, generous spacing and gentle
 CSS entrance animations. Reduced-motion preferences are respected.
 
+The visual design uses the supplied six-color purple palette: #42326E,
+#6E5B9A, #B29CE4, #B2A6CE, #D7C8ED and #E0D4FC. The header is deep purple,
+the icon scales with the viewport, and cards and photographs have soft shadows.
+Playfair Display is used for section and dialog headings, Inter for text and
+navigation, and Instrument Serif for the hero and short caption. The fonts are
+served locally with their open-source licenses and Latin/Latin Extended subsets.
+Scroll graphics use a single passive listener with frame scheduling and cleanup.
+Buttons, links, filters, inputs, menus, messages and dialogs include coordinated
+hover, focus, press or entrance transitions. Device reduced-motion preferences
+are respected, including when that setting changes while the site is open.
+
 Clients can message Mina before booking. Administrators have a client inbox,
 appointment approval controls and separate conversations for each appointment.
 Messages are stored in the database and protected by owner/admin checks.

@@ -5,6 +5,7 @@ import { api, hasApi } from '../lib/api';
 import { TREATMENTS, CATEGORIES, SLOTS, fmt } from '../lib/mock';
 import { Modal } from './Dialog';
 import { Badge } from './ui';
+import { MotionBloom, useSalonScroll } from './SalonMotion';
 
 const STATUS = { PENDING: 'Na čekanju', CONFIRMED: 'Potvrđeno', COMPLETED: 'Završeno', CANCELLED: 'Otkazano' };
 const images = { Lice: '/images/facial-treatment-v2.webp', Telo: '/images/body-treatment.webp', 'Masaže': '/images/massage-treatment-v2.webp', Depilacija: '/images/depilation-treatment.webp', Wellness: '/images/salon-room.webp' };
@@ -42,6 +43,7 @@ export default function Website() {
   const user = session?.user;
   const isAdmin = user?.role === 'ADMIN';
   const selectedTreatment = treatments.find(t => String(t.id) === String(booking.treatmentId));
+  useSalonScroll(root);
 
   const reloadCatalog = async () => {
     if (!hasApi) throw new Error('Povezivanje sa salonom trenutno nije dostupno. Pokušajte kasnije.');
@@ -167,10 +169,10 @@ export default function Website() {
       </nav>
       <button className="primary header-book" disabled={!ready} onClick={() => startBooking()}>Zakaži termin <ArrowRight size={15} /></button>
       <button className="menu-toggle" aria-label={menu ? 'Zatvori meni' : 'Otvori meni'} aria-expanded={menu} onClick={() => setMenu(!menu)}>{menu ? <X /> : <Menu />}</button>
-    </div></header>
+    </div><div className="scroll-progress" aria-hidden="true" /></header>
     {notice && <div className="site-container"><div className="site-notice" role="status">{notice}<button aria-label="Zatvori obaveštenje" onClick={() => setNotice('')}><X size={16} /></button></div></div>}
     <main>
-      <section id="home" className="landing-hero"><div className="site-container hero-layout">
+      <section id="home" className="landing-hero"><MotionBloom className="hero-bloom" /><div className="site-container hero-layout">
         <div className="hero-copy"><p className="eyebrow hero-enter">MINA WELLNESS · SUBOTICA</p><h1 className="hero-enter">Vreme za mir.<br />Vreme za <em>sebe.</em></h1><p className="hero-enter hero-description">Prepusti se nezi, pronađi svoj balans i uživaj u malim ritualima koji čine veliku razliku.</p>
           <div className="hero-actions hero-enter"><button className="primary" disabled={!ready} onClick={() => startBooking()}>Zakaži svoj trenutak <ArrowRight size={17} /></button><a href="#treatments" className="text-link">Istraži tretmane</a></div>
           <div className="hero-location hero-enter"><MapPin size={15} /> Braće Radić 57, Subotica</div>
@@ -185,9 +187,9 @@ export default function Website() {
         </article>)}</div>
         {!treatments.length && <p className="empty-state">Tretmani će uskoro biti dostupni. Pošalji Mini pitanje za preporuku.</p>}
       </section>
-      <section id="about" className="about-section"><div className="site-container about-layout"><div className="about-image" data-reveal><img src="/images/salon-room.webp" alt="Prostor Mina salona sa lavandom i priborom za masažu" loading="lazy" /></div><div className="about-copy" data-reveal><p className="eyebrow">DOBRODOŠLA U MINA WELLNESS</p><h2>Mali predah.<br /><em>Velika razlika.</em></h2><p>Mirna atmosfera, tople boje i vreme posvećeno tebi. U našem salonu u Subotici svaki dolazak je prilika da usporiš i posvetiš pažnju svom telu.</p><p>Nisi sigurna koji tretman da izabereš? Piši Mini i zajedno pronađite negu koja ti odgovara.</p><button className="text-link" disabled={!ready} onClick={() => enter('contact')}>Razgovaraj sa Minom <ArrowRight size={17} /></button></div></div></section>
+      <section id="about" className="about-section"><MotionBloom className="about-bloom" /><div className="site-container about-layout"><div className="about-image" data-reveal><img src="/images/salon-room.webp" alt="Prostor Mina salona sa lavandom i priborom za masažu" loading="lazy" /></div><div className="about-copy" data-reveal><p className="eyebrow">DOBRODOŠLA U MINA WELLNESS</p><h2>Mali predah.<br /><em>Velika razlika.</em></h2><p>Mirna atmosfera, tople boje i vreme posvećeno tebi. U našem salonu u Subotici svaki dolazak je prilika da usporiš i posvetiš pažnju svom telu.</p><p>Nisi sigurna koji tretman da izabereš? Piši Mini i zajedno pronađite negu koja ti odgovara.</p><button className="text-link" disabled={!ready} onClick={() => enter('contact')}>Razgovaraj sa Minom <ArrowRight size={17} /></button></div></div></section>
       <section className="site-section site-container gallery-section"><div className="section-heading" data-reveal><div><p className="eyebrow">PROSTOR ZA OPUŠTANJE</p><h2>Oseti atmosferu <em>salona.</em></h2></div></div><div className="salon-gallery"><img data-reveal src="/images/salon-atmosphere.webp" alt="Toplo osvetljen prostor za masažu" loading="lazy" /><img data-reveal src="/images/salon-details.webp" alt="Detalji prostora i priprema za tretman" loading="lazy" /></div></section>
-      <section id="contact" className="contact-section"><div className="site-container contact-layout" data-reveal><div><p className="eyebrow">TU SMO ZA TEBE</p><h2>Tvoj sledeći trenutak <em>mira.</em></h2><p><MapPin size={18} /> Braće Radić 57, 24000 Subotica</p><a className="text-link" href="https://www.google.com/maps/search/?api=1&query=Bra%C4%87e+Radi%C4%87+57+Subotica" target="_blank" rel="noreferrer">Pronađi salon <ArrowRight size={16} /></a></div><div className="contact-actions"><button className="primary" disabled={!ready} onClick={() => startBooking()}><CalendarDays size={18} /> Zakaži termin</button><button className="secondary" disabled={!ready} onClick={() => enter('contact')}><MessageSquare size={18} /> Piši Mini</button><small>Za zakazivanje i poruke potrebna je prijava.</small></div></div></section>
+      <section id="contact" className="contact-section"><MotionBloom className="contact-bloom" /><div className="site-container contact-layout" data-reveal><div><p className="eyebrow">TU SMO ZA TEBE</p><h2>Tvoj sledeći trenutak <em>mira.</em></h2><p><MapPin size={18} /> Braće Radić 57, 24000 Subotica</p><a className="text-link" href="https://www.google.com/maps/search/?api=1&query=Bra%C4%87e+Radi%C4%87+57+Subotica" target="_blank" rel="noreferrer">Pronađi salon <ArrowRight size={16} /></a></div><div className="contact-actions"><button className="primary" disabled={!ready} onClick={() => startBooking()}><CalendarDays size={18} /> Zakaži termin</button><button className="secondary" disabled={!ready} onClick={() => enter('contact')}><MessageSquare size={18} /> Piši Mini</button><small>Za zakazivanje i poruke potrebna je prijava.</small></div></div></section>
     </main>
     <footer className="site-container site-footer"><Brand /><p>© {new Date().getFullYear()} Mina Wellness Salon</p><a href="#home">Na vrh <ArrowRight size={14} /></a></footer>
 
@@ -209,4 +211,3 @@ export default function Website() {
     </Modal>
   </div>;
 }
-

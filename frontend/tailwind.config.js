@@ -1,7 +1,7 @@
 module.exports = {
   content: ['./app/**/*.{js,jsx}', './components/**/*.{js,jsx}'],
   theme: { extend: {
-    colors: { mina: { DEFAULT: '#5E3B76', 2: '#6B4E91' }, lav: { DEFAULT: '#F3EFFF', 2: '#EAE5F3' }, paper: '#FAF8FC' },
-    fontFamily: { serif: ['Cormorant Garamond', 'serif'], sans: ['Nunito Sans', 'system-ui', 'sans-serif'] },
-    boxShadow: { soft: '0 4px 20px rgba(94,59,118,.08)' } } },
+    colors: { mina: { DEFAULT: '#42326E', 2: '#6E5B9A' }, lav: { DEFAULT: '#E0D4FC', 2: '#D7C8ED' }, paper: '#FAF8FF' },
+    fontFamily: { serif: ['Playfair Display', 'serif'], sans: ['Inter', 'system-ui', 'sans-serif'] },
+    boxShadow: { soft: '0 8px 26px rgba(66,50,110,.12)' } } },
 };
