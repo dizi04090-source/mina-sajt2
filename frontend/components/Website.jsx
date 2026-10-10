@@ -48,7 +48,7 @@ export default function Website() {
   const generation = useRef(0);
   const lock = useRef(false);
   const user = session?.user;
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = ready && user?.role === 'ADMIN';
   const selectedTreatment = treatments.find(t => String(t.id) === String(booking.treatmentId));
   useEffect(() => { document.documentElement.style.scrollBehavior = motionEnabled ? '' : 'auto'; return () => { document.documentElement.style.scrollBehavior = ''; }; }, [motionEnabled]);
   useSalonScroll(root, motionEnabled);
@@ -71,7 +71,10 @@ export default function Website() {
     if (hasApi) reloadCatalog().catch(() => {});
     let saved;
     try { saved = JSON.parse(localStorage.getItem('minaSession') || sessionStorage.getItem('minaSession') || 'null'); } catch {}
-    if (saved?.token && hasApi) api('/api/users/profile', { token: saved.token }).then(profile => setSession({ token: saved.token, user: profile })).catch(() => { localStorage.removeItem('minaSession'); sessionStorage.removeItem('minaSession'); }).finally(() => setReady(true));
+    if (saved?.token && hasApi) api('/api/users/profile', { token: saved.token, timeoutMs: 5000 }).then(profile => {
+      if (!profile.id || !['USER', 'ADMIN'].includes(profile.role)) throw new Error('Nevažeća sesija.');
+      setSession({ token: saved.token, user: profile });
+    }).catch(() => { localStorage.removeItem('minaSession'); sessionStorage.removeItem('minaSession'); }).finally(() => setReady(true));
     else setReady(true);
   }, []);
 
@@ -174,7 +177,7 @@ export default function Website() {
     <header className="site-header"><div className="site-container header-inner"><Brand />
       <nav className={menu ? 'main-nav open' : 'main-nav'} aria-label="Glavna navigacija">
         {[['#treatments', 'Tretmani'], ['#about', 'O salonu'], ['#contact', 'Kontakt']].map(([href, label]) => <a key={href} href={href} onClick={() => setMenu(false)}>{label}</a>)}
-        <button disabled={!ready} onClick={() => enter('account')}>{user ? isAdmin ? 'Admin panel' : 'Moj nalog' : 'Prijava'}</button>
+        {isAdmin ? <button onClick={() => enter('account')}>Admin panel</button> : <button disabled={!ready} onClick={() => enter('account')}>{user ? 'Moj nalog' : 'Prijava'}</button>}
       </nav>
       <button className="primary header-book" disabled={!ready} onClick={() => startBooking()}>Zakaži termin <ArrowRight size={15} /></button>
       <button className="menu-toggle" aria-label={menu ? 'Zatvori meni' : 'Otvori meni'} aria-expanded={menu} onClick={() => setMenu(!menu)}>{menu ? <X /> : <Menu />}</button>
@@ -186,7 +189,6 @@ export default function Website() {
           <div className="hero-actions hero-enter"><button className="primary" disabled={!ready} onClick={() => startBooking()}>Zakaži svoj trenutak <ArrowRight size={17} /></button><a href="#treatments" className="text-link">Istraži tretmane</a></div>
           <div className="hero-location hero-enter"><MapPin size={15} /> Braće Radić 57, Subotica</div>
         </div>
-        <div className="hero-visual"><div className="hero-caption"><span>Nega sa pažnjom.</span><small>MINA WELLNESS SALON</small></div></div>
       </div></section>
       <div className="ritual-strip"><span>Pažnja u svakom detalju</span><span>Nega po tvojoj meri</span><span>Tvoj trenutak mira</span></div>
       <section id="treatments" className="site-section site-container"><div className="section-heading" data-reveal><div><p className="eyebrow">NAŠI RITUALI</p><h2>Nega koja ti <em>prija.</em></h2></div><p>Od opuštajuće masaže do nege lica i tela.<br />Pronađi tretman za svoj ritam.</p></div>

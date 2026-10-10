@@ -71,3 +71,14 @@ Existing catalog descriptions take precedence over introductory copy.
 Specific salon methods and products are left for Mina to confirm; massage and
 lymphatic-drainage content links to NCCIH and Cleveland Clinic respectively.
 New catalog entries receive a general fallback detail view.
+
+## Session loading and administrator visibility
+
+API requests now time out after 12 seconds, including stalled response bodies.
+Saved-session verification has a five-second limit and releases the public
+booking buttons on failure, requiring a fresh sign-in instead of waiting forever.
+The navigation renders the admin link only after a valid server profile confirms
+an ADMIN role. Guests and regular customers see sign-in or their own account.
+The hero caption over Mina's portrait has been removed.
+Two frontend timeout/response tests and ten backend tests passed, including
+customer rejection at all admin panel endpoints. The production build passed.

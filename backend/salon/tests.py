@@ -102,6 +102,13 @@ class SalonConversationTests(TestCase):
             with self.subTest(path=path):
                 self.assertEqual(getattr(self.client, method)(path).status_code, 401)
 
+    def test_customer_cannot_open_any_admin_panel_endpoint(self):
+        self.client.force_authenticate(self.customer)
+        for path in ['/api/admin/overview', '/api/admin/users', '/api/admin/bookings', '/api/admin/conversations']:
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 403)
+        self.assertEqual(self.client.post('/api/admin/admins', {}, format='json').status_code, 403)
+
     def test_question_before_booking_admin_reply_and_privacy(self):
         self.client.force_authenticate(self.customer)
         self.assertEqual(self.client.get('/api/conversations/my').data, {'id': None, 'messages': []})
