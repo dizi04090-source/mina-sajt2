@@ -4,6 +4,8 @@ import { ArrowRight, CalendarDays, MapPin, Menu, MessageSquare, X } from 'lucide
 import { api, hasApi } from '../lib/api';
 import { TREATMENTS, CATEGORIES, SLOTS, fmt } from '../lib/mock';
 import { Modal } from './Dialog';
+import TreatmentDetails, { TreatmentPrice } from './TreatmentDetails';
+import { treatmentDetails } from '../lib/treatment-details';
 import { Badge } from './ui';
 import { MotionBloom, useSalonScroll, useButtonMotion } from './SalonMotion';
 
@@ -24,6 +26,8 @@ export default function Website() {
   useEffect(() => { setMotionEnabled(localStorage.getItem('minaMotion') !== 'quiet'); }, []);
   const toggleMotion = () => { const next = !motionEnabled; setMotionEnabled(next); localStorage.setItem('minaMotion', next ? 'full' : 'quiet');  };
   const [modal, setModal] = useState(null);
+  const [detailTreatment, setDetailTreatment] = useState(null);
+  const showTreatment = treatment => { setDetailTreatment(treatment); setError(''); setThread(null); setModal('details'); };
   const [authMode, setAuthMode] = useState('login');
   const [afterAuth, setAfterAuth] = useState('account');
   const [form, setForm] = useState({ fullName: '', email: '', password: '', confirm: '', remember: true });
@@ -187,8 +191,8 @@ export default function Website() {
       <div className="ritual-strip"><span>Pažnja u svakom detalju</span><span>Nega po tvojoj meri</span><span>Tvoj trenutak mira</span></div>
       <section id="treatments" className="site-section site-container"><div className="section-heading" data-reveal><div><p className="eyebrow">NAŠI RITUALI</p><h2>Nega koja ti <em>prija.</em></h2></div><p>Od opuštajuće masaže do nege lica i tela.<br />Pronađi tretman za svoj ritam.</p></div>
         <div className="category-list" data-reveal aria-label="Kategorije tretmana">{CATEGORIES.map(c => <button aria-pressed={category === c} key={c} onClick={() => setCategory(c)} className={category === c ? 'active' : ''}>{c}</button>)}</div>
-        <div className="service-grid">{treatments.filter(t => category === 'Svi' || t.category === category).map((t, i) => <article className="service-card" key={t.id} data-reveal style={{ '--reveal-delay': `${(i % 3) * 75}ms` }}>
-          <div className="service-image"><img src={images[t.category] || images.Wellness} alt={t.name} loading="lazy" />{t.popular && <span>Omiljeni ritual</span>}</div><div className="service-content"><small>{t.category} · {t.durationMin} min</small><h3>{t.name}</h3><div className="service-bottom"><span>{fmt(t.priceRsd)}</span><button disabled={!ready} onClick={() => startBooking(t)} aria-label={`Zakaži ${t.name}`}>Zakaži <ArrowRight size={16} /></button></div></div>
+        <div className="service-grid">{treatments.filter(t => category === 'Svi' || t.category === category).map((t, i) => <article className="service-card" key={t.id} onClick={event => { if (!event.target.closest('button')) showTreatment(t); }} data-reveal style={{ '--reveal-delay': `${(i % 3) * 75}ms` }}>
+          <div className="service-image"><img src={images[t.category] || images.Wellness} alt={t.name} loading="lazy" />{t.popular && <span>Omiljeni ritual</span>}</div><div className="service-content"><small>{t.category} · {t.durationMin} min</small><h3><button className="service-title" onClick={() => showTreatment(t)} aria-label={`Detalji: ${t.name}`}>{t.name}</button></h3><p className="service-summary">{treatmentDetails(t).summary}</p><button className="service-details-link" onClick={() => showTreatment(t)} aria-label={`Saznaj više: ${t.name}`}>O tretmanu <ArrowRight size={15} /></button><div className="service-bottom"><TreatmentPrice value={t.priceRsd} /><button disabled={!ready} onClick={() => startBooking(t)} aria-label={`Zakaži ${t.name}`}>Zakaži <ArrowRight size={16} /></button></div></div>
         </article>)}</div>
         {!treatments.length && <p className="empty-state">Tretmani će uskoro biti dostupni. Pošalji Mini pitanje za preporuku.</p>}
       </section>
@@ -198,7 +202,8 @@ export default function Website() {
     </main>
     <footer className="site-container site-footer"><Brand /><p>© {new Date().getFullYear()} Mina Wellness Salon</p><button className="motion-toggle" aria-pressed={motionEnabled} onClick={toggleMotion}>Animacije: {motionEnabled ? 'uključene' : 'isključene'}</button><a href="#home">Na vrh <ArrowRight size={14} /></a></footer>
 
-    <Modal reduced={!motionEnabled} open={Boolean(modal)} onClose={close} title={modal === 'auth' ? authMode === 'login' ? 'Dobrodošla nazad.' : 'Tvoj nalog za negu.' : modal === 'booking' ? 'Zakaži svoj trenutak.' : modal === 'contact' ? 'Razgovor sa Minom' : isAdmin ? `Zdravo, ${user?.fullName || user?.username}!` : 'Moj nalog'}>
+    <Modal reduced={!motionEnabled} open={Boolean(modal)} onClose={close} title={modal === 'details' ? detailTreatment?.name : modal === 'auth' ? authMode === 'login' ? 'Dobrodošla nazad.' : 'Tvoj nalog za negu.' : modal === 'booking' ? 'Zakaži svoj trenutak.' : modal === 'contact' ? 'Razgovor sa Minom' : isAdmin ? `Zdravo, ${user?.fullName || user?.username}!` : 'Moj nalog'}>
+      {modal === 'details' && detailTreatment && <TreatmentDetails treatment={detailTreatment} image={images[detailTreatment.category] || images.Wellness} ready={ready} onBook={() => startBooking(detailTreatment)} onContact={() => enter('contact')} />}
       {notice && modal === 'account' && <p className="dialog-intro" role="status">{notice}</p>}
       {error && <p className="form-error" role="alert">{error}</p>}
       {modal === 'auth' && <><p className="dialog-intro">{afterAuth === 'booking' ? 'Prijavi se da nastaviš zakazivanje. Tvoj izbor tretmana ostaje sačuvan.' : afterAuth === 'contact' ? 'Prijavi se da pošalješ Mini poruku.' : 'Prijavi se da vidiš svoje termine i poruke.'}</p><div className="dialog-tabs"><button className={authMode === 'login' ? 'active' : ''} onClick={() => { setAuthMode('login'); setError(''); }}>Prijava</button><button className={authMode === 'register' ? 'active' : ''} onClick={() => { setAuthMode('register'); setError(''); }}>Napravi nalog</button></div><form className="site-form" onSubmit={authenticate}>

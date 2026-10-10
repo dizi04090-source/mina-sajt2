@@ -59,3 +59,15 @@ The purple header and panels have fine line and halftone textures. The brand mar
 Buttons grow, turn off-white, follow the mouse slightly and pulse on clicks.
 Cards, section frames and category controls reveal with a staggered upward scale transition.
 Dialogs scale into view. The footer animation switch also disables dialog and pointer motion.
+
+## Treatment cards and public details
+
+Treatment names use a stronger serif weight; dinar amounts are larger and bold.
+Cards have a short summary, an explicit detail action and a separate booking button.
+Phones use one card per row to preserve readable prices and spacing.
+Every catalog treatment opens a public detail dialog with duration, price,
+what to expect, potential benefits, preparation and booking/contact actions.
+Existing catalog descriptions take precedence over introductory copy.
+Specific salon methods and products are left for Mina to confirm; massage and
+lymphatic-drainage content links to NCCIH and Cleveland Clinic respectively.
+New catalog entries receive a general fallback detail view.

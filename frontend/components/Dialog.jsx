@@ -10,6 +10,11 @@ export function Modal({ open, onClose, title, children, reduced = false }) {
   close.current = onClose;
   useEffect(() => {
     if (!open) return;
+    const frame = requestAnimationFrame(() => dialog.current?.querySelector('button')?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open, title]);
+  useEffect(() => {
+    if (!open) return;
     const previous = document.activeElement;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
