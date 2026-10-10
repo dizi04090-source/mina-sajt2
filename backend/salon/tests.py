@@ -8,6 +8,59 @@ from rest_framework.test import APIClient
 from .models import Booking, BookingMessage, Category, Notification, Treatment, User, Conversation, ContactMessage
 
 
+class ProfileSettingsTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='original', email='profile@example.com', full_name='Original', password='Original-test-936')
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+
+    def test_profile_updates_are_private_and_keep_email_login(self):
+        response = self.client.patch('/api/users/profile', {'fullName': 'New Name', 'username': 'new.username'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['username'], 'new.username')
+        self.assertEqual(response.data['email'], 'profile@example.com')
+        self.assertEqual(self.client.patch('/api/users/profile', {'role': 'ADMIN'}, format='json').status_code, 400)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.role, 'USER')
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.patch('/api/users/profile', {}, format='json').status_code, 401)
+        self.assertEqual(self.client.post('/api/auth/login', {'email': 'profile@example.com', 'password': 'Original-test-936'}, format='json').status_code, 200)
+
+    def test_username_conflicts_and_invalid_images_are_rejected(self):
+        User.objects.create_user(username='reserved', email='other@example.com')
+        self.assertEqual(self.client.patch('/api/users/profile', {'username': 'RESERVED'}, format='json').status_code, 409)
+        self.assertEqual(self.client.patch('/api/users/profile', {'avatar': 'data:image/svg+xml;base64,PHN2Zz4='}, format='json').status_code, 400)
+        self.assertEqual(self.client.patch('/api/users/profile', {'avatar': 'data:image/jpeg;base64,YmFk'}, format='json').status_code, 400)
+
+    def test_picture_can_be_saved_and_removed(self):
+        import base64
+        from io import BytesIO
+        from PIL import Image
+        output = BytesIO()
+        Image.new('RGB', (32, 32), 'purple').save(output, format='JPEG')
+        avatar = 'data:image/jpeg;base64,' + base64.b64encode(output.getvalue()).decode()
+        self.assertEqual(self.client.patch('/api/users/profile', {'avatar': avatar}, format='json').status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.avatar, avatar)
+        self.assertEqual(self.client.patch('/api/users/profile', {'avatar': ''}, format='json').status_code, 200)
+
+    def test_password_change_requires_current_password_and_revokes_old_tokens(self):
+        from .views import make_token
+        old_token = make_token(self.user)
+        self.assertEqual(self.client.post('/api/users/password', {'currentPassword': 'wrong', 'newPassword': 'New-secret-8276'}, format='json').status_code, 400)
+        self.assertEqual(self.client.post('/api/users/password', {'currentPassword': 'Original-test-936', 'newPassword': 'weak'}, format='json').status_code, 400)
+        response = self.client.post('/api/users/password', {'currentPassword': 'Original-test-936', 'newPassword': 'New-secret-8276'}, format='json')
+        self.assertEqual(response.status_code, 200)
+        self.client.force_authenticate(None)
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + old_token)
+        self.assertEqual(self.client.get('/api/users/profile').status_code, 401)
+        self.client.credentials(HTTP_AUTHORIZATION='Bearer ' + response.data['token'])
+        self.assertEqual(self.client.get('/api/users/profile').status_code, 200)
+        self.client.credentials()
+        self.assertEqual(self.client.post('/api/auth/login', {'email': 'profile@example.com', 'password': 'Original-test-936'}, format='json').status_code, 401)
+        self.assertEqual(self.client.post('/api/auth/login', {'email': 'profile@example.com', 'password': 'New-secret-8276'}, format='json').status_code, 200)
+
+
 @override_settings(STORAGES={
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},

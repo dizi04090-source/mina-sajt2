@@ -475,3 +475,28 @@ html { scroll-behavior: smooth; scroll-padding-top: 104px; }
 }
 
 @media(max-width:600px) { .service-grid { grid-template-columns:1fr; gap:24px; } .service-content { padding:22px; } .service-image { aspect-ratio:1.65; } .mina-site .service-content h3 { font-size:28px; } .service-summary { font-size:14px; } .service-bottom { flex-wrap:nowrap; } }
+
+.profile-avatar { display:inline-grid; place-items:center; width:72px; height:72px; border-radius:50%; overflow:hidden; background:#E0D4FC; color:#42326E; border:2px solid #D7C8ED; flex-shrink:0; }
+.profile-avatar img { width:100%; height:100%; object-fit:cover; }
+.account-nav .profile-avatar { width:28px; height:28px; border-width:1px; }
+.account-nav .profile-avatar svg { width:16px; height:16px; }
+.profile-photo-row { display:flex; align-items:center; gap:18px; padding:18px; background:#f4effc; border-radius:12px; }
+.profile-photo-row > div { display:flex; flex-direction:column; align-items:flex-start; gap:8px; }
+.site-form .photo-upload { display:inline-flex; flex-direction:row; align-items:center; gap:8px; cursor:pointer; border:1px solid #B2A6CE; padding:8px 12px; border-radius:6px; background:#faf8ff; font-size:12px; }
+.photo-upload input[type=file] { position:absolute; width:1px; height:1px; opacity:0; padding:0; }
+.photo-upload:focus-within { outline:2px solid #6E5B9A; outline-offset:3px; }
+.profile-photo-row .text-link { font-size:11px; }
+.profile-security { border-top:1px solid #D7C8ED; margin-top:30px; padding-top:26px; }
+.profile-security h3 { display:flex; align-items:center; gap:9px; font-family:'Playfair Display',serif; font-weight:600; font-size:25px; }
+.profile-security > p { color:#6E5B9A; font-size:12px; line-height:1.7; margin:10px 0 18px; }
+.profile-signout { display:flex; align-items:center; justify-content:center; gap:9px; width:100%; padding:13px; margin-top:28px; border:1px solid #D7C8ED; border-radius:6px; font-size:13px; font-weight:600; }
+.profile-success { background:#eee8fa; border:1px solid #B2A6CE; border-radius:6px; padding:13px; font-size:13px; margin-bottom:18px; }
+.dialog-tabs { flex-wrap:wrap; gap:14px; }
+@media(max-width:1100px) { .main-nav { gap:14px; } }
+@media(max-width:380px) { .profile-photo-row { padding:14px; gap:12px; } .profile-avatar { width:60px; height:60px; } }
+
+/* A single account entry with a frosted background that moves with its content. */
+.main-nav .account-nav { display:inline-flex; align-items:center; justify-content:center; gap:9px; padding:8px 13px; min-height:42px; border:1px solid #e0d4fc40; border-radius:28px; background:linear-gradient(135deg,#e0d4fc26,#d7c8ed0d); backdrop-filter:blur(16px) saturate(125%); -webkit-backdrop-filter:blur(16px) saturate(125%); box-shadow:inset 0 1px 0 #faf8ff20,0 4px 16px #21173b20; font-weight:600; }
+.main-nav .account-nav span:not(.profile-avatar) { white-space:nowrap; }
+@media(hover:hover) { .mina-site .account-nav:hover:not(:disabled) { background-color:#faf8ffcf; color:#42326E; border-color:#e0d4fc99; box-shadow:inset 0 1px 0 #ffffff80,0 8px 22px #21173b35; } }
+@media(max-width:760px) { .main-nav .account-nav { justify-content:flex-start; align-self:flex-start; min-width:145px; margin:5px 0; padding:9px 15px; } }

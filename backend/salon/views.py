@@ -1,4 +1,12 @@
 from datetime import datetime, timedelta
+import base64
+import binascii
+import re
+from io import BytesIO
+from PIL import Image, UnidentifiedImageError
+from django.db import IntegrityError, transaction
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate
 from django.db.models import Q
 from django.utils import timezone
@@ -12,6 +20,7 @@ from .serializers import public_user, TreatmentSerializer, BookingSerializer, Me
 
 def make_token(user, remember=False):
     refresh = RefreshToken.for_user(user)
+    refresh['version'] = user.token_version
     access = refresh.access_token
     if remember:
         access.set_exp(lifetime=timedelta(days=30))
@@ -58,9 +67,64 @@ def login(request):
         return Response({"error": "Pogrešan email ili lozinka"}, status=401)
     return Response({"token": make_token(user, remember), "user": public_user(user)})
 
-@api_view(["GET"])
+@api_view(["GET", "PATCH"])
 def profile(request):
+    if request.method == 'PATCH':
+        allowed = {'fullName', 'username', 'avatar'}
+        if set(request.data) - allowed:
+            return Response({'error': 'Nepodržano polje profila.'}, status=400)
+        user = request.user
+        name = request.data.get('fullName', user.full_name)
+        username = request.data.get('username', user.username)
+        avatar = request.data.get('avatar', user.avatar)
+        if not isinstance(name, str) or not name.strip() or len(name.strip()) > 160:
+            return Response({'error': 'Unesite ime i prezime (do 160 znakova).'}, status=400)
+        if not isinstance(username, str) or (username != user.username and not re.fullmatch(r'[A-Za-z0-9._-]{3,30}', username)):
+            return Response({'error': 'Korisničko ime: 3–30 slova, brojeva, tačaka, crtica ili donjih crta.'}, status=400)
+        if User.objects.filter(username__iexact=username).exclude(pk=user.pk).exists():
+            return Response({'error': 'Korisničko ime je već zauzeto.'}, status=409)
+        if not isinstance(avatar, str) or len(avatar) > 200000:
+            return Response({'error': 'Slika je prevelika.'}, status=400)
+        if avatar:
+            try:
+                prefix, content = avatar.split(',', 1)
+                if prefix != 'data:image/jpeg;base64':
+                    raise ValueError()
+                image = Image.open(BytesIO(base64.b64decode(content, validate=True)))
+                if image.format != 'JPEG' or max(image.size) > 512:
+                    raise ValueError()
+                image.verify()
+            except (ValueError, binascii.Error, UnidentifiedImageError, OSError, Image.DecompressionBombError):
+                return Response({'error': 'Izaberite ispravnu sliku profila.'}, status=400)
+        user.full_name = name.strip()
+        user.username = username
+        user.avatar = avatar
+        try:
+            with transaction.atomic():
+                user.save(update_fields=['full_name', 'username', 'avatar'])
+        except IntegrityError:
+            return Response({'error': 'Korisničko ime je već zauzeto.'}, status=409)
     return Response(public_user(request.user))
+
+
+@api_view(['POST'])
+def change_password(request):
+    with transaction.atomic():
+        user = User.objects.select_for_update().get(pk=request.user.pk)
+        current = request.data.get('currentPassword', '')
+        password = request.data.get('newPassword', '')
+        if not isinstance(current, str) or not user.check_password(current):
+            return Response({'error': 'Trenutna lozinka nije ispravna.'}, status=400)
+        if not strong_password(password) or password == current:
+            return Response({'error': 'Nova lozinka mora biti drugačija i imati najmanje 8 znakova, slovo i broj.'}, status=400)
+        try:
+            validate_password(password, user=user)
+        except ValidationError:
+            return Response({'error': 'Izaberite jaču lozinku koja nije previše jednostavna ili slična profilu.'}, status=400)
+        user.set_password(password)
+        user.token_version += 1
+        user.save(update_fields=['password', 'token_version'])
+    return Response({'token': make_token(user, bool(request.data.get('remember'))), 'user': public_user(user)})
 
 @api_view(["GET"])
 @permission_classes([AllowAny])

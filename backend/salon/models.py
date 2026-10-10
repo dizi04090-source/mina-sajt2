@@ -6,6 +6,8 @@ class User(AbstractUser):
     full_name = models.CharField(max_length=160, blank=True)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default="USER")
     wallet_rsd = models.IntegerField(default=0)
+    avatar = models.TextField(blank=True)
+    token_version = models.PositiveIntegerField(default=0)
 
     @property
     def is_admin_role(self):

@@ -9,6 +9,7 @@ def public_user(user):
         "email": user.email,
         "role": "ADMIN" if user.is_admin_role else "USER",
         "walletRsd": user.wallet_rsd,
+        "avatar": user.avatar,
     }
 
 class CategorySerializer(serializers.ModelSerializer):

@@ -82,3 +82,25 @@ an ADMIN role. Guests and regular customers see sign-in or their own account.
 The hero caption over Mina's portrait has been removed.
 Two frontend timeout/response tests and ten backend tests passed, including
 customer rejection at all admin panel endpoints. The production build passed.
+
+## Profile settings
+
+Signed-in clients and admins have a Profile tab and a profile shortcut in the
+navigation. They can edit their name and username, upload/remove a square profile
+photo, change their password with the current password, and sign out.
+Email sign-in remains unchanged. Profile pictures are cropped to 256x256 JPEGs,
+validated on the server and stored in the database so they survive redeployments.
+Password changes issue a replacement token and revoke earlier sessions using a
+per-user token version; existing sessions remain compatible before a password change.
+Install the updated backend requirements (Pillow) and apply migration 0004 before
+deploying the frontend. No data reset is needed.
+Fourteen backend tests passed, including profile ownership, username conflicts,
+photo validation, current-password verification and old-token rejection.
+
+## Unified account navigation
+
+The separate Profile navigation shortcut is now folded into Moj nalog.
+The account dialog keeps Profile, appointments, messages and sign-out together.
+The account button includes the avatar inside a rounded, translucent blurred
+background; the whole surface moves and lightens together on hover.
+The admin shortcut remains restricted to verified administrators.

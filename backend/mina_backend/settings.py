@@ -86,7 +86,7 @@ if render_external_host:
 CSRF_TRUSTED_ORIGINS = sorted(set(CSRF_TRUSTED_ORIGINS))
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
+    "DEFAULT_AUTHENTICATION_CLASSES": ("salon.authentication.SalonJWTAuthentication",),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
 }
 
